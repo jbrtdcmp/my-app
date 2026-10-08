@@ -1,0 +1,10 @@
+{
+  "description": "Book and track tricycle rides across five Surigao del Sur towns with transparent fares, verified drivers, safety features, and community discounts.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

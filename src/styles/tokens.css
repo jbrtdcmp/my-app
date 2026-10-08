@@ -1,0 +1,108 @@
+:root {
+  /* Active sizing preset. Change these values to resize the app globally. */
+  --type-caption: 11px;
+  --type-small: 12px;
+  --type-body: 14px;
+  --type-subtitle: 16px;
+  --type-title: 18px;
+  --type-display: 22px;
+  --type-logo: 30px;
+  --line-caption: 16px;
+  --line-small: 16px;
+  --line-body: 20px;
+  --line-subtitle: 22px;
+  --line-title: 24px;
+  --line-display: 28px;
+  --control-small: 32px;
+  --control-default: 40px;
+  --control-large: 44px;
+  --control-button-padding: 16px;
+  --control-button-icon-gap: 8px;
+  --control-icon-only: 36px;
+  --tap-target-extension: 4px;
+  --input-height: 40px;
+  --textarea-min-height: 80px;
+  --card-padding-mobile: 12px;
+  --card-padding-wide: 16px;
+  --card-radius: 14px;
+  --sheet-radius: 20px;
+  --page-padding-mobile: 16px;
+  --page-padding-wide: 24px;
+  --app-bar-height: 52px;
+  --tab-bar-height: 56px;
+  --sticky-action-height: 65px;
+  --tab-control-height: 44px;
+  --sheet-handle-width: 32px;
+  --sheet-handle-height: 4px;
+  --driver-sheet-width: 380px;
+  --ride-sheet-expanded-height: 65vh;
+  --ride-sheet-collapsed-height: 244px;
+  --passenger-map-expanded-bottom: 420px;
+  --passenger-map-collapsed-bottom: 64px;
+  --public-trip-min-height: 90vh;
+  --public-map-min-height: 300px;
+  --onboarding-visual-max-height: 52vh;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-page-inline: 16px;
+  --space-page-inline-wide: 24px;
+  --space-page-top: 16px;
+  --space-page-bottom: 16px;
+  --space-section: 24px;
+  --space-section-title: 8px;
+  --space-card-list: 12px;
+  --space-card-padding: 12px;
+  --space-card-padding-wide: 16px;
+  --space-card-content: 8px;
+  --space-tight: 4px;
+  --space-form-field: 12px;
+  --space-form-label: 4px;
+  --space-form-message: 4px;
+  --space-form-submit: 24px;
+  --space-button-row: 8px;
+  --space-icon-text: 8px;
+  --space-icon-text-small: 4px;
+  --space-list-row: 12px;
+  --space-sheet: 16px;
+  --space-dialog: 16px;
+  --space-dialog-content: 12px;
+  --space-dialog-actions: 16px;
+  --space-chip: 8px;
+  --space-stat-grid: 12px;
+  --space-app-bar: 16px;
+  --space-tab-item: 8px;
+  --space-sidebar: 16px;
+  --space-sidebar-item: 4px;
+  --space-sidebar-section: 24px;
+  --space-sticky-inline: 16px;
+  --space-sticky-block: 12px;
+  --icon-small: 16px;
+  --icon-default: 18px;
+  --icon-large: 20px;
+  --icon-display: 24px;
+  --radius-control: 12px;
+  --radius-card: 14px;
+  --button-hit-area: 44px;
+
+  /*
+   * Ultra-compact preset (optional): button/input 36px, body 13px, small
+   * 11px, caption 10px, card padding 10px. To switch, set the related active
+   * variables above to these values; keep controls and body at or above 36px
+   * and 13px respectively.
+   */
+  --ultra-control: 36px;
+  --ultra-body: 13px;
+  --ultra-small: 11px;
+  --ultra-caption: 10px;
+}
