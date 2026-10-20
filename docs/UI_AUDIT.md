@@ -29,4 +29,21 @@ Run `npm run check:ui` to check the source for arbitrary sizing utilities and br
 
 ## Verification limits
 
-`npx tsc --noEmit`, `npm run check:ui`, and `npm run build` all pass. The earlier Tailwind native Windows binding failure no longer occurs. `npm run capture:ui` now drives Playwright against the running preview to generate the 360px, 390px, 768px, and 1440px screenshots; review sign-in, passenger home, active ride, driver dashboard, and admin overview in the running preview before release.
+`npx tsc --noEmit`, `npm run check:ui`, and `npm run build` all pass. The earlier Tailwind native Windows binding failure no longer occurs.
+
+`npm run capture:ui` (`scripts/capture-ui.mjs`, Playwright) does the following. Demo credentials come from the environment (`PASAKJA_DEMO_{PASSENGER,DRIVER,ADMIN}_PHONE`, `PASAKJA_DEMO_PASSWORD`); they are never printed. The end-to-end ride flow only runs when `PASAKJA_ALLOW_WRITES=1` because it creates a real ride.
+
+Committed screenshots (small set, `docs/ride-flow-after/`):
+- `onboarding-390`, `onboarding-1440`, `sign-in-390`, `sign-in-1440`.
+- For each role, `home`, `alerts`, and `profile` at 390 and 1440.
+
+The full width matrix (every screen at 360, 390, 768, 1440) is written to `docs/ride-flow-after/full/`, which is gitignored. It is not limited to the committed set.
+
+The overflow audit covers the public screens and, when the API is running, each role's home, rides, alerts, and profile at all four widths. The role-navigation audit clicks the bell and avatar on each role's top-level screens and asserts the URL stays inside that role's prefix; the Back arrow is only tested from an inner screen that actually renders it (inside an active ride).
+
+Parts that need the API running (`/api/health` reachable, i.e. Apache + MySQL up):
+- Signed-in screenshot capture and the signed-in overflow audit for every role.
+- The bell/avatar/back navigation checks.
+- The two-context end-to-end ride flow (passenger books, driver accepts the just-created request, passenger reaches RideTracking, bell mid-ride, resume from Bookings and the home banner), plus the Active-ride-banner/municipality-switcher overlap check — and this also needs `PASAKJA_ALLOW_WRITES=1`.
+
+Without the API, only the public onboarding/sign-in screenshots and their overflow checks run. Please still review the committed images and the full matrix in the running preview before release.

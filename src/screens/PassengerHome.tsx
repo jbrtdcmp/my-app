@@ -28,7 +28,7 @@ function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: 
   ];
 
   return (
-    <div className="relative z-20">
+    <div className="relative z-20" data-testid="municipality-switcher">
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-4 py-2.5 rounded-full border-2 border-orange bg-white shadow-sm"
@@ -190,7 +190,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
 
         {/* Active ride banner */}
         {activeRide && onResumeRide && (
-          <div className="absolute top-16 left-3 right-3 z-20 bg-surface rounded-2xl border border-orange/30 shadow-card px-4 py-3">
+          <div data-testid="active-ride-banner" className="absolute top-16 left-3 right-3 z-20 bg-surface rounded-2xl border border-orange/30 shadow-card px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-orange mb-1">Active ride</p>
             <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
             <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>

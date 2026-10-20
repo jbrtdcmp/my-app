@@ -12,7 +12,7 @@ interface DriverDashboardProps {
 
 function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccept: () => void; onDecline: () => void }) {
   return (
-    <div className="ride-request-card bg-surface rounded-2xl border border-border p-4 animate-fade-in">
+    <div data-testid="ride-request-card" className="ride-request-card bg-surface rounded-2xl border border-border p-4 animate-fade-in">
       {/* Passenger header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-1">
@@ -36,7 +36,7 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
         <div className="space-y-3">
           <div>
             <p className="text-xs text-ink-soft">Pickup</p>
-            <p className="text-sm font-medium text-ink leading-tight">{ride.pickup_label}</p>
+            <p data-testid="ride-request-pickup" className="text-sm font-medium text-ink leading-tight">{ride.pickup_label}</p>
           </div>
           <div>
             <p className="text-xs text-ink-soft">Destination</p>
