@@ -140,7 +140,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
       <div className="px-5 pb-6 space-y-4">
         {trackingError && <p role="alert" className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{trackingError}</p>}
         {location.error && isDriver && <div role="alert" className="rounded-xl border border-danger/30 bg-danger/5 p-3 text-sm text-danger"><p>{location.error}</p><button type="button" onClick={location.retry} className="mt-2 font-semibold underline">Retry location access</button></div>}
-        <div className="safety-share-card flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"><span className="flex-1"><span className="block text-sm font-semibold">Safety first</span><span className="block text-xs opacity-80">{shareNotice || 'Share your ride details with someone you trust.'}</span></span></div>
+        <button type="button" disabled={busy} onClick={() => void shareRide()} className="safety-share-card flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"><span className="flex-1"><span className="block text-sm font-semibold">Safety first</span><span className="block text-xs opacity-80">{shareNotice || 'Share your ride details with someone you trust.'}</span></span></button>
 
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-base text-ink">{snapshot?.driver?.name || 'Waiting for driver details'}</span>{snapshot?.driver && <span className="rounded-full bg-orange-light px-1.5 py-0.5 text-xs font-semibold text-orange">TODA</span>}</div>

@@ -29,6 +29,11 @@ const MENU_ICONS = {
   map: IconMap,
   profile: IconProfile,
 };
+const SCREEN_TITLES: Record<Screen, string> = {
+  home: 'Home', map: 'Map', bookings: 'Rides', alerts: 'Alerts', profile: 'Profile', driver: 'Requests', admin: 'Overview', drivers: 'Drivers',
+};
+const rideHeaderTitle = (rideState: RideState, screen: Screen) =>
+  rideState === 'idle' ? SCREEN_TITLES[screen] : rideState === 'finding' ? 'Finding a ride' : 'Ride details';
 
 function RoleSidebar({ activeScreen, onNavigate, onLogout, role, user }: {
   activeScreen: Screen;
@@ -394,7 +399,7 @@ export default function App() {
       header={<>
         {/* Mobile header */}
         <RoleTopBar
-          title={rideState === 'idle' ? ({ home: 'Home', map: 'Map', bookings: 'Rides', alerts: 'Alerts', profile: 'Profile', driver: 'Requests', admin: 'Overview', drivers: 'Drivers' } as Record<Screen, string>)[activeScreen] : rideState === 'finding' ? 'Finding a ride' : 'Ride details'}
+          title={rideHeaderTitle(rideState, activeScreen)}
           onBack={rideState !== 'idle' ? backToHome : undefined}
           onAlerts={() => navigateScreen('alerts')}
           onProfile={() => navigateScreen('profile')}
@@ -407,7 +412,7 @@ export default function App() {
         {/* Desktop location bar */}
         <div className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
           <div className="flex flex-col">
-            <h1 className="app-desktop-header__title">{rideState === 'idle' ? ({ home: 'Home', map: 'Map', bookings: 'Rides', alerts: 'Alerts', profile: 'Profile', driver: 'Requests', admin: 'Overview', drivers: 'Drivers' } as Record<Screen, string>)[activeScreen] : rideState === 'finding' ? 'Finding a ride' : 'Ride details'}</h1>
+            <h1 className="app-desktop-header__title">{rideHeaderTitle(rideState, activeScreen)}</h1>
             <span className="text-xs text-ink-soft">CarCanMadCarLan · Surigao del Sur</span>
           </div>
           <div className="app-navigation-bar__actions">
