@@ -15,7 +15,7 @@ import Map from './components/Map';
 import PublicTrip from './screens/PublicTrip';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
 import { SAMPLE_ALERTS } from './data';
-import { acceptRide, authenticate, createRide, getCurrentUser, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
+import { acceptRide, authenticate, createRide, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
 import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
 import { useBackNavigation } from './navigation/useBackNavigation';
 
@@ -216,12 +216,12 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [activeRideId, setActiveRideId] = useState<number | null>(null);
   const [authNotice, setAuthNotice] = useState('');
-  const navigateToPath = (destination: string, screen: Screen, replace = false) => {
+  const navigateToPath = (destination: string, screen: Screen, replace = false, preserveRideState = false) => {
     const historyState = { role, routePath: destination, previousPath: window.history.state?.routePath };
     if (replace) window.history.replaceState(historyState, '', destination);
     else if (window.location.pathname !== destination) window.history.pushState(historyState, '', destination);
     setActiveScreen(screen);
-    setRideState('idle');
+    if (!preserveRideState) setRideState('idle');
   };
 
   useEffect(() => {
@@ -256,10 +256,7 @@ export default function App() {
         : pathForScreen(user.role, activeScreen);
       window.history.replaceState({ role: user.role, routePath: destination }, '', destination);
       setActiveScreen(activeScreen);
-      if (rideId) {
-        setActiveRideId(Number(rideId));
-        setRideState('tracking');
-      }
+      if (rideId) restoreRideState(Number(rideId));
       setAppState('app');
     }).catch(error => {
       if (!mounted) return;
@@ -271,6 +268,14 @@ export default function App() {
   }, []);
 
   const unreadCount = SAMPLE_ALERTS.filter(a => !a.isRead).length;
+  const restoreRideState = (id: number) => {
+    setActiveRideId(id);
+    getRide(id).then(ride => {
+      if (ride.status === 'finding') setRideState('finding');
+      else if (ride.status === 'accepted' || ride.status === 'arriving' || ride.status === 'in_progress') setRideState('tracking');
+      else { setRideState('idle'); setActiveRideId(null); }
+    }).catch(() => setRideState('tracking'));
+  };
   const navigateScreen = (screen: Screen, replace = false) => {
     navigateToPath(pathForScreen(role, screen), screen, replace);
   };
@@ -304,14 +309,14 @@ export default function App() {
   const handlePassengerBookingStart = async (ride: RideRequest) => {
     const created = await createRide(ride);
     setActiveRideId(created.id);
+    navigateToPath(pathForRide(role, created.id), 'bookings', false, true);
     setRideState('finding');
-    navigateToPath(pathForRide(role, created.id), 'bookings', false);
   };
   const handleDriverAcceptRide = async (rideId: number) => {
     await acceptRide(rideId);
     setActiveRideId(rideId);
+    navigateToPath(pathForRide(role, rideId), 'bookings', false, true);
     setRideState('tracking');
-    navigateToPath(pathForRide(role, rideId), 'bookings', false);
   };
   const handleRideFound = () => setRideState('tracking');
   const handleRideComplete = () => {
@@ -351,8 +356,8 @@ export default function App() {
       } else {
         const rideId = window.location.pathname.match(/^\/(?:passenger|driver)\/ride\/(\d+)$/)?.[1];
         setActiveScreen(rideId ? 'bookings' : route.screen);
-        setRideState(rideId ? 'tracking' : 'idle');
-        setActiveRideId(rideId ? Number(rideId) : null);
+        if (rideId) restoreRideState(Number(rideId));
+        else { setRideState('idle'); setActiveRideId(null); }
       }
     };
     window.addEventListener('popstate', handlePopState);

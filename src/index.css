@@ -198,6 +198,7 @@ input:disabled, select:disabled, textarea:disabled {
 .app-navigation-bar__actions { display: flex; align-items: center; gap: var(--space-xs); }
 .app-navigation-bar__actions--admin { gap: 0; margin-right: calc(var(--space-sm) * -1); }
 .app-navigation-bar__actions--admin > .app-navigation-bar__action { margin-right: calc(var(--space-sm) * -1); }
+.app-desktop-header__title { margin: 0; font-size: var(--type-title); line-height: var(--line-title); font-weight: 600; color: #26211e; }
 .admin-settings-anchor { position: relative; }
 .admin-settings-menu { position: absolute; top: calc(100% + var(--space-sm)); right: 0; z-index: 100; width: min(288px, calc(100vw - 32px)); max-height: calc(100dvh - var(--app-bar-height) - 32px); overflow-y: auto; padding: var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-float); }
 .admin-settings-menu__heading { margin: 0; padding: var(--space-sm) var(--space-sm) var(--space-xs); color: var(--color-ink-soft); font-size: var(--type-caption); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
