@@ -4,7 +4,7 @@
 
 - PHP syntax: `C:\xampp\php\php.exe -l api\index.php`
 - TypeScript: `npx tsc --noEmit`
-- `npm run build` could not run in the current workspace because the installed `@tailwindcss/oxide` Windows native binding is missing/unloadable (`tailwindcss-oxide.win32-x64-msvc.node`); no dependency reinstall was attempted.
+- `npm run build`: passes. The earlier `@tailwindcss/oxide` Windows native binding problem no longer occurs in this workspace.
 - PHPUnit and Vitest are not installed in this workspace. No claim of PHPUnit/Vitest coverage is made. Add those runners with the project's deployment dependency policy before making them required CI checks.
 
 ## Manual two-device scenario

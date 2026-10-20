@@ -120,12 +120,27 @@ The root cause is structural:
 - [x] Signed-out user opening a role-specific URL is redirected to sign-in (browser smoke test).
 - [ ] Reload a signed-in deep link and test browser/device back on phone and desktop. Not yet run: requires authenticated role sessions and device/browser test coverage.
 
+## Bell / avatar / back checks (before vs after)
+
+### Before (code review)
+- Bell, avatar, and back controls lived in one shared header and dispatched to a single global `activeScreen` value. There was no role prefix in the URL, so a click could land a driver or admin on a passenger-shaped destination.
+- Back was a hard-coded `setActiveScreen('home')` fallback, not stack-aware and not role-scoped.
+- No automated check existed for bell/avatar/back destinations per role.
+
+### After (implemented)
+- Navigation controls resolve destinations from the signed-in role configuration in `src/navigation/roleRoutes.ts`, so bell, avatar, and back always target the current role's `alerts` / `profile` / fallback paths, all under `/passenger/`, `/driver/`, or `/admin/`.
+- Back uses the guarded back helper: it goes back only when the previous history entry belongs to the same role tree, otherwise it uses the role's configured fallback.
+- `scripts/capture-ui.mjs` adds an automated per-role check: for passenger, driver, and admin it opens three screens each, clicks the bell, the avatar, and the back arrow, and asserts the resulting URL stays inside that role's prefix. Oversized/absent controls and cross-role landings are reported as failures.
+- The script also runs an end-to-end two-context flow (passenger books, driver accepts, passenger reaches RideTracking), then clicks the bell mid-ride and resumes from Bookings and from the passenger home Active-ride banner.
+- Live execution is pending: these checks require Apache + MySQL (`/api/health`) plus demo credentials from the environment. They have been code-reviewed and syntax-checked but not yet run against a live backend.
+
 ## Needs a backend/API change
+- **Missing notifications read endpoint.** There is no signed-in-user notifications feed or unread-count endpoint. The role-isolated `Alerts` screens therefore render an honest empty state only; there is no "mark all as read", unread badge, or role/user-filtered notification content until the API exists.
+- **Registration drops municipality, vehicle, and ID-photo fields.** The registration flow collects municipality, vehicle type/details, license, plate/body numbers, TODA, and an ID photo, but the API user payload returned and persisted omits municipality, vehicle, and ID-photo fields. Driver/admin profiles display only returned values and mark the rest unavailable until those fields are accepted and returned by the API.
 - Current `ApiUser` data includes only ID, name, phone, email, and role. Admin permission level and last-login time are absent; the admin profile therefore shows “Not available” for last login and uses the returned role as the available role indicator.
-- The driver profile response currently omits municipality, vehicle type, license number, and ID-photo URL. The driver profile displays returned plate/body/TODA/verification/rating/ride-count values and marks the other fields unavailable.
+- The driver profile response omits municipality, vehicle type, license number, and ID-photo URL. The driver profile displays returned plate/body/TODA/verification/rating/ride-count values and marks the other fields unavailable.
 - Passenger municipality, saved places, favorite drivers, low-data preference, and profile-photo persistence are not provided by the current client profile data/API calls. Avatar selection in this UI is a local preview only.
 - The current frontend service exposes no profile-edit or change-password methods. No fake save behavior was added.
-- The existing alert samples have no signed-in user identifier, role ownership, unread-count endpoint, or notification/SOS feed. Role URLs are isolated, but the current sample notification contents cannot be securely filtered per user or show role-specific system/SOS records until such an API exists.
 
 ## Run A not completed / handoff limits
 - Several admin destinations from the requested target (`passengers`, `reports`, `SOS`, and `settings`) do not have dedicated full pages in the current app; the existing admin dashboard exposes its current subset only. Run B design consistency was not started.

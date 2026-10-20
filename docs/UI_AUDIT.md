@@ -29,4 +29,4 @@ Run `npm run check:ui` to check the source for arbitrary sizing utilities and br
 
 ## Verification limits
 
-`npx tsc --noEmit` and `npm run check:ui` are the available code checks. The existing Vite build currently fails before compiling the app because the installed Tailwind native Windows binding is missing/unloadable, and the configured preview server at port 8443 did not respond. No browser automation runner is installed, so the requested 390px and 1440px screenshots could not be generated or visually checked here. Please review sign-in, passenger home, active ride, driver dashboard, and admin overview at 360px, 390px, 768px, and 1440px in the running preview before release.
+`npx tsc --noEmit`, `npm run check:ui`, and `npm run build` all pass. The earlier Tailwind native Windows binding failure no longer occurs. `npm run capture:ui` now drives Playwright against the running preview to generate the 360px, 390px, 768px, and 1440px screenshots; review sign-in, passenger home, active ride, driver dashboard, and admin overview in the running preview before release.
