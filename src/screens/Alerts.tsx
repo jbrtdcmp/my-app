@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SAMPLE_ALERTS, type Alert } from '../data';
+import type { Alert } from '../data';
 import { EmptyState } from '../components/ui';
 import { IconAlerts } from '../components/Icons';
 import type { AppRole } from '../navigation/roleRoutes';
@@ -47,7 +47,7 @@ function AlertItem({ alert, onRead }: { alert: Alert; onRead: (id: string) => vo
 }
 
 export default function Alerts({ role }: { role: AppRole }) {
-  const [alerts, setAlerts] = useState(SAMPLE_ALERTS);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const unreadCount = alerts.filter(a => !a.isRead).length;
 
   const markRead = (id: string) => {

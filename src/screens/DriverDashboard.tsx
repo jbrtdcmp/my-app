@@ -7,6 +7,7 @@ import { useDriverLocation } from '../hooks/useDriverLocation';
 
 interface DriverDashboardProps {
   onAcceptRide: (rideId: number) => Promise<void>;
+  onResumeRide?: (rideId: number) => void;
 }
 
 function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccept: () => void; onDecline: () => void }) {
@@ -66,7 +67,7 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
   );
 }
 
-export default function DriverDashboard({ onAcceptRide }: DriverDashboardProps) {
+export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDashboardProps) {
   const [isOnline, setIsOnline] = useState(true);
   const [rides, setRides] = useState<ApiRide[]>([]);
   const [requestError, setRequestError] = useState('');
@@ -98,6 +99,7 @@ export default function DriverDashboard({ onAcceptRide }: DriverDashboardProps) 
 
   const requests = rides.filter(ride => ride.status === 'finding');
   const completedRides = rides.filter(ride => ride.status === 'completed');
+  const activeRide = rides.find(ride => ['accepted', 'arriving', 'in_progress'].includes(ride.status));
 
   const handleDecline = async (id: number) => {
     try {
@@ -152,6 +154,16 @@ export default function DriverDashboard({ onAcceptRide }: DriverDashboardProps) 
       </div>
 
       {location.error && <div role="alert" className="mx-4 mb-4 rounded-xl border border-danger/30 bg-danger/5 p-3 text-sm text-danger"><p>{location.error}</p><button type="button" onClick={location.retry} className="mt-2 font-semibold underline">Retry location access</button></div>}
+
+      {/* Active ride banner */}
+      {activeRide && onResumeRide && (
+        <div className="mx-4 mb-4 bg-orange-light rounded-2xl px-4 py-3 border border-orange/30">
+          <p className="text-xs font-semibold uppercase tracking-wide text-orange mb-1">Active ride</p>
+          <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
+          <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>
+          <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary w-full mt-3">Resume ride</button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="px-4 mb-6 grid grid-cols-2 gap-3">

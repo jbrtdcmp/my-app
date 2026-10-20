@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconAlerts, IconBookings, IconDriver, IconHome, IconLogout, IconMap, IconMenu, IconProfile, IconSettings } from './components/Icons';
+import { IconAlerts, IconArrowLeft, IconBookings, IconDriver, IconHome, IconLogout, IconMap, IconMenu, IconProfile, IconSettings } from './components/Icons';
 import Onboarding from './screens/Onboarding';
 import Auth from './screens/Auth';
 import PassengerHome from './screens/PassengerHome';
@@ -14,9 +14,7 @@ import type { AdminTab } from './screens/AdminDashboard';
 import Map from './components/Map';
 import PublicTrip from './screens/PublicTrip';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
-import { SAMPLE_ALERTS } from './data';
-import { acceptRide, authenticate, createRide, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
-import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
+import { acceptRide, authenticate, createRide, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
 import { useBackNavigation } from './navigation/useBackNavigation';
 
 type Screen = AppScreen;
@@ -32,12 +30,11 @@ const MENU_ICONS = {
   profile: IconProfile,
 };
 
-function RoleSidebar({ activeScreen, onNavigate, onLogout, role, unreadCount, user }: {
+function RoleSidebar({ activeScreen, onNavigate, onLogout, role, user }: {
   activeScreen: Screen;
   onNavigate: (s: Screen) => void;
   onLogout: () => void;
   role: UserRole;
-  unreadCount: number;
   user: ApiUser | null;
 }) {
   const links = useRoleRoutes(role).menu;
@@ -75,11 +72,6 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, role, unreadCount, us
               )}
               {Icon && <Icon size={20}/>}
               <span>{label}</span>
-              {id === 'alerts' && unreadCount > 0 && (
-                <span className={`ml-auto text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${
-                  isActive ? 'bg-white/25 text-white' : 'bg-orange text-white'
-                }`}>{unreadCount}</span>
-              )}
             </button>
           );
         })}
@@ -104,11 +96,10 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, role, unreadCount, us
   );
 }
 
-function RoleBottomTabBar({ activeScreen, onNavigate, role, unreadCount }: {
+function RoleBottomTabBar({ activeScreen, onNavigate, role }: {
   activeScreen: Screen;
   onNavigate: (s: Screen) => void;
   role: UserRole;
-  unreadCount: number;
 }) {
   const tabs = useRoleRoutes(role).menu;
   return <SharedBottomTabBar active={activeScreen} onSelect={id => onNavigate(id as Screen)} tabs={tabs.map(({ id, label, icon }) => {
@@ -117,12 +108,11 @@ function RoleBottomTabBar({ activeScreen, onNavigate, role, unreadCount }: {
       id,
       label,
       icon: Icon ? <Icon size={20}/> : undefined,
-      badge: id === 'alerts' && unreadCount > 0 ? <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange text-xs font-bold text-white">{unreadCount}</span> : undefined,
     };
   })}/>;
 }
 
-function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, activeScreen, role, unreadCount }: { title: string; onBack?: () => void; onAlerts: () => void; onProfile: () => void; onLogout: () => void; onNavigate: (screen: Screen) => void; activeScreen: Screen; role: UserRole; unreadCount: number }) {
+function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, activeScreen, role }: { title: string; onBack?: () => void; onAlerts: () => void; onProfile: () => void; onLogout: () => void; onNavigate: (screen: Screen) => void; activeScreen: Screen; role: UserRole }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -145,9 +135,9 @@ function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, 
 
   return (
     <div className="md:hidden relative"><TopBar title={title}
-      leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7"/></svg></button>}
+      leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
       trailing={<div className={`app-navigation-bar__actions${role === 'admin' ? ' app-navigation-bar__actions--admin' : ''}`}>
-        <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/>{unreadCount > 0 && <span className="app-alert-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
+        <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
         <button type="button" onClick={onProfile} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
         {role === 'admin' && <div className="admin-settings-anchor" ref={settingsRef}>
           <button type="button" onClick={() => setSettingsOpen(open => !open)} aria-label="Admin settings" aria-controls="admin-settings-menu" aria-expanded={settingsOpen} className="app-navigation-bar__action"><IconSettings size={20}/></button>
@@ -162,7 +152,7 @@ function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, 
           {menu.map(({ id, label, icon }) => {
             const Icon = icon ? MENU_ICONS[icon] : undefined;
             return <button key={id} type="button" className={activeScreen === id ? 'admin-mobile-drawer__item is-active' : 'admin-mobile-drawer__item'} onClick={() => { onNavigate(id); setMenuOpen(false); }}>
-              {Icon && <Icon size={20}/>}<span>{label}</span>{id === 'alerts' && unreadCount > 0 && <span className="admin-mobile-drawer__badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              {Icon && <Icon size={20}/>}<span>{label}</span>
             </button>;
         })}
         </nav>}
@@ -170,7 +160,7 @@ function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, 
   );
 }
 
-function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onRideFound, onComplete, onLogout }: {
+function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onLogout }: {
   screen: Screen;
   role: UserRole;
   user: ApiUser | null;
@@ -180,6 +170,7 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
   onAdminTabChange: (tab: AdminTab) => void;
   onPassengerBookingStart: (ride: RideRequest) => Promise<void>;
   onDriverAcceptRide: (rideId: number) => Promise<void>;
+  onResumeRide: (rideId: number) => void;
   onRideFound: () => void;
   onComplete: () => void;
   onLogout: () => void;
@@ -188,19 +179,19 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
   if (rideState === 'tracking') return <RideTracking rideId={rideId} onComplete={onComplete} isDriver={role === 'driver'}/>;
 
   switch (screen) {
-    case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart}/>;
+    case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
     case 'map': return (
       <div className="flex-1 p-4">
         <Map activeMunicipality="carrascal" showRoute={false} className="h-full"/>
       </div>
     );
-    case 'bookings': return <Bookings/>;
+    case 'bookings': return <Bookings onResumeRide={onResumeRide} canResume={role !== 'admin'}/>;
     case 'alerts': return <Alerts role={role}/>;
     case 'profile': return <Profile role={role} user={user} onLogout={onLogout}/>;
-    case 'driver': return <DriverDashboard onAcceptRide={onDriverAcceptRide}/>;
+    case 'driver': return <DriverDashboard onAcceptRide={onDriverAcceptRide} onResumeRide={onResumeRide}/>;
     case 'admin': return <AdminDashboard initialTab={adminTab} onTabChange={onAdminTabChange}/>;
     case 'drivers': return <AdminDashboard initialTab="drivers" onTabChange={onAdminTabChange}/>;
-    default: return <PassengerHome onBookingStart={onPassengerBookingStart}/>;
+    default: return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
   }
 }
 
@@ -267,7 +258,6 @@ export default function App() {
     return () => { mounted = false; window.removeEventListener('pasakja:auth-expired', handleExpired); };
   }, []);
 
-  const unreadCount = SAMPLE_ALERTS.filter(a => !a.isRead).length;
   const restoreRideState = (id: number) => {
     setActiveRideId(id);
     getRide(id).then(ride => {
@@ -278,6 +268,10 @@ export default function App() {
   };
   const navigateScreen = (screen: Screen, replace = false) => {
     navigateToPath(pathForScreen(role, screen), screen, replace);
+  };
+  const handleResumeRide = (rideId: number) => {
+    navigateToPath(pathForRide(role, rideId), 'bookings', false, true);
+    restoreRideState(rideId);
   };
 
   const handleAuth = async (_r: 'passenger' | 'driver', credentials: AuthPayload) => {
@@ -394,7 +388,6 @@ export default function App() {
           onNavigate={navigateScreen}
           onLogout={handleLogout}
           role={role}
-          unreadCount={unreadCount}
           user={currentUser}
         />
       </div>}
@@ -409,7 +402,6 @@ export default function App() {
           onNavigate={navigateScreen}
           activeScreen={activeScreen}
           role={role}
-          unreadCount={unreadCount}
         />
 
         {/* Desktop location bar */}
@@ -419,14 +411,14 @@ export default function App() {
             <span className="text-xs text-ink-soft">CarCanMadCarLan · Surigao del Sur</span>
           </div>
           <div className="app-navigation-bar__actions">
-            <button type="button" onClick={() => navigateScreen('alerts')} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/>{unreadCount > 0 && <span className="app-alert-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button>
+            <button type="button" onClick={() => navigateScreen('alerts')} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
             <button type="button" onClick={() => navigateScreen('profile')} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
           </div>
         </div>
       </>}
       footer={rideState === 'idle' && role !== 'admin' ? (
         <div className="md:hidden">
-          <RoleBottomTabBar activeScreen={activeScreen} onNavigate={navigateScreen} role={role} unreadCount={unreadCount}/>
+          <RoleBottomTabBar activeScreen={activeScreen} onNavigate={navigateScreen} role={role}/>
         </div>
       ) : undefined}
     >
@@ -441,6 +433,7 @@ export default function App() {
             onAdminTabChange={setAdminTab}
             onPassengerBookingStart={handlePassengerBookingStart}
             onDriverAcceptRide={handleDriverAcceptRide}
+            onResumeRide={handleResumeRide}
             onRideFound={handleRideFound}
             onComplete={handleRideComplete}
             onLogout={handleLogout}

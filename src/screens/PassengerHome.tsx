@@ -1,12 +1,15 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Map, { type MapPoint } from '../components/Map';
 import { IconCheck, IconChevronDown, IconLocation, IconDestination, IconMap } from '../components/Icons';
 import { MUNICIPALITIES, RIDE_TYPES, type RideType } from '../data';
-import type { RideRequest } from '../services/api';
+import { getRides, type ApiRide, type RideRequest } from '../services/api';
 
 interface PassengerHomeProps {
   onBookingStart: (ride: RideRequest) => Promise<void>;
+  onResumeRide?: (rideId: number) => void;
 }
+
+const ACTIVE_STATUSES = ['finding', 'accepted', 'arriving', 'in_progress'];
 
 const DISCOUNTS = [
   { id: 'none', label: 'None' },
@@ -103,7 +106,7 @@ function FarePreview({ rideType, discount }: { rideType: RideType; discount: str
   );
 }
 
-export default function PassengerHome({ onBookingStart }: PassengerHomeProps) {
+export default function PassengerHome({ onBookingStart, onResumeRide }: PassengerHomeProps) {
   const [activeMuni, setActiveMuni] = useState('carrascal');
   const [rideType, setRideType] = useState<RideType>('regular');
   const [discount, setDiscount] = useState('none');
@@ -116,8 +119,18 @@ export default function PassengerHome({ onBookingStart }: PassengerHomeProps) {
   const [notes, setNotes] = useState('');
   const [bookingError, setBookingError] = useState('');
   const [sheetExpanded, setSheetExpanded] = useState(true);
+  const [activeRide, setActiveRide] = useState<ApiRide | null>(null);
   const dragStartY = useRef<number | null>(null);
   const didSwipe = useRef(false);
+
+  useEffect(() => {
+    if (!onResumeRide) return;
+    let current = true;
+    getRides()
+      .then(rides => { if (current) setActiveRide(rides.find(ride => ACTIVE_STATUSES.includes(ride.status)) ?? null); })
+      .catch(() => { if (current) setActiveRide(null); });
+    return () => { current = false; };
+  }, [onResumeRide]);
 
   const muni = MUNICIPALITIES.find(m => m.id === activeMuni)!;
 
@@ -174,6 +187,16 @@ export default function PassengerHome({ onBookingStart }: PassengerHomeProps) {
         <div className="absolute top-4 left-0 right-0 flex justify-center px-4">
           <MunicipalitySwitcher active={activeMuni} onChange={setActiveMuni}/>
         </div>
+
+        {/* Active ride banner */}
+        {activeRide && onResumeRide && (
+          <div className="absolute top-16 left-3 right-3 z-20 bg-surface rounded-2xl border border-orange/30 shadow-card px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-orange mb-1">Active ride</p>
+            <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
+            <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>
+            <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary w-full mt-3">View active ride</button>
+          </div>
+        )}
       </div>
 
       {/* Bottom Sheet */}

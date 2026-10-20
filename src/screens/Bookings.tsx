@@ -8,8 +8,9 @@ const MUNI_FILTERS = ['All', 'Carrascal', 'Cantilan', 'Madrid', 'Carmen', 'Lanuz
 const RIDE_TYPE_LABELS: Record<string, string> = {
   regular: 'Regular', pakyaw: 'Private Hire', padala: 'Parcel Delivery', scheduled: 'Scheduled', group: 'Group',
 };
+const ACTIVE_STATUSES = ['finding', 'accepted', 'arriving', 'in_progress'];
 
-export default function Bookings() {
+export default function Bookings({ onResumeRide, canResume = false }: { onResumeRide?: (rideId: number) => void; canResume?: boolean }) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [muniFilter, setMuniFilter] = useState('All');
   const [selectedRide, setSelectedRide] = useState<number | null>(null);
@@ -68,6 +69,8 @@ export default function Bookings() {
         ) : filtered.map(ride => {
           const selected = selectedRide === ride.id;
           const rideType = RIDE_TYPE_LABELS[ride.ride_type] || ride.ride_type;
+          const isActive = ACTIVE_STATUSES.includes(ride.status);
+          const canTrack = canResume && isActive && onResumeRide;
           return (
             <article key={ride.id} className={`ride-history-card bg-surface rounded-2xl border p-4 ${selected ? 'ride-history-card--selected' : 'border-border'}`}>
               <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="w-full text-left">
@@ -80,8 +83,7 @@ export default function Bookings() {
                     <StatusBadge status={ride.status}/>
                     <span className="text-xs text-ink-soft bg-warm px-2 py-0.5 rounded-full border border-border">{rideType}</span>
                   </div>
-                </div>
-                <div className="flex items-start gap-3 mb-3">
+                </div>                <div className="flex items-start gap-3 mb-3">
                   <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-1" aria-hidden="true">
                     <span className="w-2.5 h-2.5 rounded-full bg-orange"/><span className="w-px h-5 bg-border"/><span className="w-2.5 h-2.5 rounded bg-ink"/>
                   </div>
@@ -98,6 +100,11 @@ export default function Bookings() {
                   <span className="text-xs text-orange font-medium">{selected ? 'Hide details' : 'Details'}</span>
                 </div>
               </button>
+              {canTrack && (
+                <button type="button" onClick={() => onResumeRide(ride.id)} className="btn-primary w-full mt-3">
+                  {ride.status === 'finding' ? 'View search' : 'Track ride'}
+                </button>
+              )}
               {selected && (
                 <div className="mt-4 pt-4 border-t border-border animate-fade-in">
                   <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">Driver</span><span className="font-medium text-ink">{ride.driver_name || 'Not assigned'}</span></div>

@@ -48,6 +48,10 @@ export function IconArrowUpDown({ size = 16, className = '' }: IconProps) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="m7 7 3-3 3 3M10 4v16m7-3-3 3-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
+export function IconArrowLeft({ size = 20, className = '' }: IconProps) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+
 export function IconMegaphone({ size = 18, className = '' }: IconProps) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M4 13V9a2 2 0 0 1 2-2h3l9-4v17l-9-4H6a2 2 0 0 1-2-2ZM9 16l2 5h3l-2-6M18 8l3-2M18 14l3 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
