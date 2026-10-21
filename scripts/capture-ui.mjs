@@ -8,6 +8,7 @@ for (const envFile of ['.env.local', '.env']) {
 
 const BASE_URL = process.env.PASAKJA_URL || 'http://localhost:8443';
 const API_HEALTH = process.env.PASAKJA_API_HEALTH || 'http://localhost/PASAKJA-main/api/health';
+const API_BASE = (process.env.VITE_API_BASE_URL || process.env.PASAKJA_API_BASE || 'http://localhost/PASAKJA-main/api').replace(/\/$/, '');
 const OUT_DIR = 'docs/ride-flow-after';
 const FULL_DIR = `${OUT_DIR}/full`;
 const ROLE_PREFIX = { passenger: '/passenger/', driver: '/driver/', admin: '/admin/' };
@@ -23,6 +24,15 @@ const CAPTURE_WIDTHS = [390, 1440];
 const FULL_WIDTHS = [360, 390, 768, 1440];
 const PUBLIC_SCREENS = { onboarding: '/onboarding', 'sign-in': '/sign-in' };
 const COMMITTED_ROLE_SCREENS = ['home', 'alerts', 'profile'];
+const ROLE_READY = {
+  passenger: '.app-bottom-sheet, nav, [data-testid="municipality-switcher"]',
+  driver: 'text=Driver Dashboard',
+  admin: 'text=/overview|dashboard|rides/i',
+};
+// Realistic GPS near Carrascal, Surigao del Sur so map/ride features behave.
+const GEO = { latitude: 9.3697, longitude: 125.9497 };
+const GEO_OPTIONS = { latitude: GEO.latitude, longitude: GEO.longitude };
+const GEO_PERMISSIONS = ['geolocation'];
 
 function demoAccount(role) {
   const phone = process.env[`PASAKJA_DEMO_${role.toUpperCase()}_PHONE`];
@@ -49,25 +59,109 @@ async function apiReachable() {
   }
 }
 
+async function newContext(browser, width = 390) {
+  return browser.newContext({
+    viewport: { width, height: 844 },
+    geolocation: GEO_OPTIONS,
+    permissions: GEO_PERMISSIONS,
+  });
+}
+
+// Sign-in: the map screens keep tiles + polling going forever, so 'load' never
+// fires. Wait for the URL commit, then for a role-specific element to render.
 async function signIn(page, role) {
   const { phone, password } = demoAccount(role);
   await page.goto(`${BASE_URL}/sign-in`, { waitUntil: 'domcontentloaded' });
   await page.locator('#auth-phone').fill(phone);
   await page.locator('input[type="password"]').first().fill(password);
   await page.getByRole('button', { name: /sign in|log in|continue/i }).first().click();
-  await page.waitForURL(url => Object.values(ROLE_PREFIX).some(prefix => url.pathname.startsWith(prefix)), { timeout: 20000 });
+  await page.waitForURL(
+    url => Object.values(ROLE_PREFIX).some(prefix => url.pathname.startsWith(prefix)),
+    { timeout: 20000, waitUntil: 'commit' },
+  );
+  await page.locator(ROLE_READY[role]).first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
 }
 
+function parseRideId(pathname) {
+  const match = pathname.match(/\/passenger\/ride\/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+async function authToken(page) {
+  return page.evaluate(() => localStorage.getItem('pasakja_auth_token') || '').catch(() => '');
+}
+
+async function activeRideForPassenger(page) {
+  const token = await authToken(page);
+  if (!token) return null;
+  try {
+    const response = await fetch(`${API_BASE}/rides`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const rides = Array.isArray(body) ? body : body.rides ?? [];
+    return rides.find(ride => ['finding', 'accepted', 'arriving', 'in_progress'].includes(ride.status)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function cancelRide(page, rideId) {
+  const token = await authToken(page);
+  if (!token) return false;
+  try {
+    const response = await fetch(`${API_BASE}/rides/${rideId}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(8000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Poll a predicate until it is true or the timeout elapses.
+async function waitFor(predicate, timeout, interval = 500) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await predicate()) return true;
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+  return false;
+}
+
+// Overflow audit: ignore Leaflet internals and any horizontally scrollable
+// ancestor (chip rows are meant to scroll). Report only a sideways-scrolling
+// document or an element overflowing the viewport outside such containers.
 async function overflowIssues(page, label) {
   const result = await page.evaluate(() => {
+    const label = el => (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60);
+    const insideScrollable = el => {
+      let node = el.parentElement;
+      while (node && node !== document.body) {
+        if (node.classList.contains('leaflet-container')) return true;
+        const overflowX = getComputedStyle(node).overflowX;
+        if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
     const overflowing = [];
     for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.leaflet-container')) continue;
       const rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.right > window.innerWidth + 1) {
-        overflowing.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]} @${Math.round(rect.right)}px`);
-      }
+      if (rect.width <= 0 || rect.right <= window.innerWidth + 1) continue;
+      if (insideScrollable(el)) continue;
+      overflowing.push(`${el.tagName.toLowerCase()}${label(el) ? ` "${label(el)}"` : ''} @${Math.round(rect.right)}px`);
     }
-    return { horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 1, overflowing: overflowing.slice(0, 5) };
+    return {
+      horizontalScroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+      overflowing: overflowing.slice(0, 5),
+    };
   });
   const issues = [];
   if (result.horizontalScroll) issues.push(`${label}: page scrolls horizontally`);
@@ -75,16 +169,35 @@ async function overflowIssues(page, label) {
   return issues;
 }
 
+// Admin overview: explicitly check whether the page itself scrolls sideways.
+async function auditAdminOverviewSideways(page, width) {
+  const result = await page.evaluate(() => {
+    const scrolls = document.documentElement.scrollWidth > window.innerWidth + 1;
+    if (!scrolls) return { scrolls, offender: '' };
+    let offender = '';
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.leaflet-container')) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.right > window.innerWidth + 1) {
+        offender = `${el.tagName.toLowerCase()} "${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 60)}" @${Math.round(rect.right)}px`;
+        break;
+      }
+    }
+    return { scrolls, offender };
+  });
+  if (!result.scrolls) return [];
+  return [`FAIL admin overview @${width}: page scrolls sideways${result.offender ? ` — ${result.offender}` : ''}`];
+}
+
 async function shoot(page, name, dir) {
   await page.screenshot({ path: `${dir}/${name}.png` });
   return name;
 }
 
-// Public screens: onboarding and sign-in at 390 and 1440 (committed).
 async function capturePublic(browser) {
   const written = [];
   for (const width of CAPTURE_WIDTHS) {
-    const context = await browser.newContext({ viewport: { width, height: 844 } });
+    const context = await newContext(browser, width);
     const page = await context.newPage();
     for (const [name, path] of Object.entries(PUBLIC_SCREENS)) {
       await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded' });
@@ -99,7 +212,7 @@ async function capturePublic(browser) {
 async function auditPublic(browser) {
   const issues = [];
   for (const width of FULL_WIDTHS) {
-    const context = await browser.newContext({ viewport: { width, height: 844 } });
+    const context = await newContext(browser, width);
     const page = await context.newPage();
     for (const [name, path] of Object.entries(PUBLIC_SCREENS)) {
       await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded' });
@@ -112,10 +225,9 @@ async function auditPublic(browser) {
   return issues;
 }
 
-// Signed-in screens: committed home/alerts/profile at 390/1440; full matrix to full/.
 async function captureRoleScreens(browser, role) {
   const written = [];
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await newContext(browser);
   const page = await context.newPage();
   await signIn(page, role);
   for (const [screen, path] of Object.entries(SCREEN_PATHS[role])) {
@@ -135,27 +247,27 @@ async function captureRoleScreens(browser, role) {
 
 async function auditRoleScreens(browser, role) {
   const issues = [];
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await newContext(browser);
   const page = await context.newPage();
   await signIn(page, role);
   for (const [screen, path] of Object.entries(SCREEN_PATHS[role])) {
     for (const width of FULL_WIDTHS) {
-      // The active-ride banner check runs separately on the live booking flow.
       await page.setViewportSize({ width, height: 844 });
       await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(600);
       issues.push(...await overflowIssues(page, `${role} ${screen} @${width}`));
+      if (role === 'admin' && screen === 'home' && [360, 390, 768].includes(width)) {
+        issues.push(...await auditAdminOverviewSideways(page, width));
+      }
     }
   }
   await context.close();
   return issues;
 }
 
-// Bell/avatar/back checks: bell and avatar on each role's top-level screens,
-// back only from inner screens where it actually renders (an active ride).
 async function auditRoleNavigation(browser, role) {
   const issues = [];
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await newContext(browser);
   const page = await context.newPage();
   await signIn(page, role);
   const prefix = ROLE_PREFIX[role];
@@ -169,7 +281,7 @@ async function auditRoleNavigation(browser, role) {
       await page.goto(`${BASE_URL}${SCREEN_PATHS[role][screen]}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(500);
       const control = page.locator(action.selector).first();
-      if (!(await control.count())) { issues.push(`${role} ${screen}: ${action.name} control not found — FAIL`); continue; }
+      if (!(await control.count())) { issues.push(`FAIL ${role} ${screen}: ${action.name} control not found`); continue; }
       const from = new URL(page.url()).pathname;
       await control.click();
       await page.waitForTimeout(700);
@@ -182,8 +294,6 @@ async function auditRoleNavigation(browser, role) {
   return issues;
 }
 
-// Back arrow: only present inside an active ride (rideState !== 'idle'). Tested
-// as part of the end-to-end flow; absent elsewhere, so nothing is reported.
 async function auditBackArrow(page, role, extraIssues) {
   const prefix = ROLE_PREFIX[role];
   const back = page.locator('button[aria-label="Back"]').first();
@@ -215,95 +325,110 @@ function bannerOverlapIssues(page, label) {
 
 async function runEndToEnd(browser) {
   const results = [];
-  const passengerContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const driverContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const passengerContext = await newContext(browser);
+  const driverContext = await newContext(browser);
   const passenger = await passengerContext.newPage();
   const driver = await driverContext.newPage();
+  let createdRideId = null;
 
-  await signIn(passenger, 'passenger');
-  await signIn(driver, 'driver');
+  try {
+    await signIn(passenger, 'passenger');
+    await signIn(driver, 'driver');
 
-  // Passenger books a ride the way a user must: fill pickup/destination in the
-  // expanded sheet, then press "Find a Tricycle".
-  await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
-  await passenger.waitForTimeout(1500);
-  const pickup = `Carrascal Public Market ${Date.now()}`;
-  await passenger.getByPlaceholder(/Pickup:/i).first().fill(pickup);
-  await passenger.getByPlaceholder(/Destination:/i).first().fill('Carrascal Municipal Hall');
-  await passenger.getByRole('button', { name: /Find a Tricycle/i }).click();
-  await passenger.waitForTimeout(3000);
+    // Stop early if the passenger is already mid-ride — we must not add another.
+    const existing = await activeRideForPassenger(passenger);
+    if (existing) {
+      results.push(`FAIL e2e: passenger already has an active ride (id ${existing.id}, status ${existing.status}); cancel it before running the write flow`);
+      return results;
+    }
 
-  // Confirm a ride was actually created before the driver steps.
-  const reachedTracking = /\/passenger\/ride\/\d+/.test(new URL(passenger.url()).pathname);
-  if (!reachedTracking) {
-    const alertText = await passenger.getByRole('alert').first().textContent().catch(() => '');
-    results.push(`FAIL e2e: ride was not created (passenger at ${passenger.url()}${alertText ? ` — ${alertText}` : ''})`);
+    await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
+    await passenger.waitForTimeout(1500);
+    const pickup = `Carrascal Public Market ${Date.now()}`;
+    await passenger.getByPlaceholder(/Pickup:/i).first().fill(pickup);
+    await passenger.getByPlaceholder(/Destination:/i).first().fill('Carrascal Municipal Hall');
+    await passenger.getByRole('button', { name: /Find a Tricycle/i }).click();
+
+    const reachedTracking = await waitFor(
+      async () => parseRideId(new URL(passenger.url()).pathname) !== null,
+      15000,
+    );
+    createdRideId = parseRideId(new URL(passenger.url()).pathname);
+    if (!reachedTracking) {
+      const alertText = await passenger.getByRole('alert').first().textContent().catch(() => '');
+      results.push(`FAIL e2e: ride was not created (passenger at ${passenger.url()}${alertText ? ` — ${alertText}` : ''})`);
+      return results;
+    }
+    results.push(`OK e2e: passenger created ride ${createdRideId} and reached RideTracking`);
+
+    // Driver accepts only the just-created request, matched by unique pickup text.
+    await driver.goto(`${BASE_URL}${ROLE_HOME.driver}`, { waitUntil: 'domcontentloaded' });
+    const accept = driver
+      .locator('[data-testid="ride-request-card"]')
+      .filter({ has: driver.locator('[data-testid="ride-request-pickup"]', { hasText: pickup }) })
+      .getByRole('button', { name: /^Accept$/i })
+      .first();
+    const cardReady = await waitFor(async () => (await accept.count()) > 0, 20000);
+    if (!cardReady) {
+      results.push(`FAIL e2e: no request card matching "${pickup}" appeared for the driver within 20s`);
+      return results;
+    }
+    await accept.click();
+    await driver.waitForTimeout(3000);
+    results.push(`OK e2e: driver accepted the just-created request (${pickup})`);
+
+    // Passenger reflects the accepted ride, and Back now renders.
+    await passenger.waitForTimeout(4000);
+    await auditBackArrow(passenger, 'passenger', results);
+
+    // View the active-ride banner on home and measure overlap with the switcher
+    // at both narrow widths users hit on phones.
+    for (const width of [360, 390]) {
+      await passenger.setViewportSize({ width, height: 844 });
+      await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
+      const bannerReady = await waitFor(async () => (await passenger.locator('[data-testid="active-ride-banner"]').count()) > 0, 10000);
+      if (!bannerReady) {
+        results.push(`FAIL e2e: active ride banner did not appear on home @${width} within 10s`);
+        continue;
+      }
+      results.push(...await bannerOverlapIssues(passenger, `passenger home Active ride banner @${width}`));
+    }
+
+    // Bell mid-ride, then resume from Bookings.
+    await passenger.setViewportSize({ width: 390, height: 844 });
+    await passenger.locator('button[aria-label="Alerts"]').click();
+    await passenger.waitForTimeout(800);
+    await passenger.goto(`${BASE_URL}/passenger/rides`, { waitUntil: 'domcontentloaded' });
+    await passenger.waitForTimeout(1500);
+    const trackButton = passenger.getByRole('button', { name: /Track ride|View search/i }).first();
+    if (await trackButton.count()) {
+      await trackButton.click();
+      const resumed = await waitFor(async () => parseRideId(new URL(passenger.url()).pathname) !== null, 15000);
+      results.push(resumed ? 'OK e2e: resumed RideTracking from Bookings' : 'FAIL e2e: Bookings resume did not open tracking within 15s');
+    } else {
+      results.push('FAIL e2e: no Track ride action found in Bookings');
+    }
+
+    // Resume from the home banner.
+    await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
+    const homeResumeReady = await waitFor(async () => (await passenger.getByRole('button', { name: /View active ride/i }).count()) > 0, 10000);
+    if (homeResumeReady) {
+      await passenger.getByRole('button', { name: /View active ride/i }).first().click();
+      const resumed = await waitFor(async () => parseRideId(new URL(passenger.url()).pathname) !== null, 15000);
+      results.push(resumed ? 'OK e2e: resumed RideTracking from home banner' : 'FAIL e2e: home banner resume did not open tracking within 15s');
+    } else {
+      results.push('FAIL e2e: no active ride banner on passenger home within 10s');
+    }
+  } finally {
+    // Always leave the system clean: cancel the ride the run created.
+    if (createdRideId !== null) {
+      const cancelled = await cancelRide(passenger, createdRideId);
+      if (cancelled) results.push(`OK e2e: cancelled created ride ${createdRideId}`);
+      else results.push(`FAIL e2e: could not cancel created ride ${createdRideId} — cancel it manually`);
+    }
     await passengerContext.close();
     await driverContext.close();
-    return results;
   }
-  results.push('OK e2e: passenger created a ride and reached RideTracking');
-
-  // Driver accepts only the just-created request, matched by unique pickup text.
-  await driver.goto(`${BASE_URL}${ROLE_HOME.driver}`, { waitUntil: 'domcontentloaded' });
-  await driver.waitForTimeout(2500);
-  const accept = driver
-    .locator('[data-testid="ride-request-card"]')
-    .filter({ has: driver.locator(`[data-testid="ride-request-pickup"]`, { hasText: pickup }) })
-    .getByRole('button', { name: /^Accept$/i })
-    .first();
-  if (!(await accept.count())) {
-    results.push(`FAIL e2e: no request card matching "${pickup}" found for the driver`);
-    await passengerContext.close();
-    await driverContext.close();
-    return results;
-  }
-  await accept.click();
-  await driver.waitForTimeout(3000);
-  results.push(`OK e2e: driver accepted the just-created request (${pickup})`);
-
-  // Passenger should reflect the accepted ride, and Back now renders.
-  await passenger.waitForTimeout(4000);
-  await auditBackArrow(passenger, 'passenger', results);
-
-  // After the ride, view the active-ride banner on home (before resuming) and
-  // measure its overlap with the municipality switcher.
-  await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
-  await passenger.waitForTimeout(2000);
-  results.push(...await bannerOverlapIssues(passenger, 'passenger home Active ride banner'));
-
-  // Bell mid-ride, then resume from Bookings.
-  await passenger.locator('button[aria-label="Alerts"]').click();
-  await passenger.waitForTimeout(800);
-  await passenger.goto(`${BASE_URL}/passenger/rides`, { waitUntil: 'domcontentloaded' });
-  await passenger.waitForTimeout(1500);
-  const trackButton = passenger.getByRole('button', { name: /Track ride|View search/i }).first();
-  if (await trackButton.count()) {
-    await trackButton.click();
-    await passenger.waitForTimeout(1500);
-    results.push(/\/passenger\/ride\/\d+/.test(new URL(passenger.url()).pathname)
-      ? 'OK e2e: resumed RideTracking from Bookings'
-      : 'FAIL e2e: Bookings resume did not open tracking');
-  } else {
-    results.push('FAIL e2e: no Track ride action found in Bookings');
-  }
-
-  // Resume from the home banner.
-  await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
-  await passenger.waitForTimeout(2000);
-  const homeResume = passenger.getByRole('button', { name: /View active ride/i }).first();
-  if (await homeResume.count()) {
-    await homeResume.click();
-    await passenger.waitForTimeout(1500);
-    results.push(/\/passenger\/ride\/\d+/.test(new URL(passenger.url()).pathname)
-      ? 'OK e2e: resumed RideTracking from home banner'
-      : 'FAIL e2e: home banner resume did not open tracking');
-  } else {
-    results.push('FAIL e2e: no active ride banner on passenger home');
-  }
-
-  await passengerContext.close();
-  await driverContext.close();
   return results;
 }
 
@@ -346,6 +471,7 @@ async function main() {
   if (failures.length) {
     console.warn(`[capture-ui] ${failures.length} issue(s):`);
     for (const line of failures) console.warn(`  - ${line}`);
+    process.exitCode = 1;
   } else {
     console.log('[capture-ui] All responsive and role-navigation checks passed.');
   }

@@ -39,11 +39,15 @@ Committed screenshots (small set, `docs/ride-flow-after/`):
 
 The full width matrix (every screen at 360, 390, 768, 1440) is written to `docs/ride-flow-after/full/`, which is gitignored. It is not limited to the committed set.
 
-The overflow audit covers the public screens and, when the API is running, each role's home, rides, alerts, and profile at all four widths. The role-navigation audit clicks the bell and avatar on each role's top-level screens and asserts the URL stays inside that role's prefix; the Back arrow is only tested from an inner screen that actually renders it (inside an active ride).
+The overflow audit covers the public screens and, when the API is running, each role's home, rides, alerts, and profile at all four widths. It only reports a document that scrolls sideways, or an element overflowing the viewport that is not inside a Leaflet map (`.leaflet-container`) or a horizontally scrollable container (a chip row with `overflow-x: auto/scroll`). Reported elements include their text or `aria-label` so they can be located. The admin overview is also checked explicitly for sideways scrolling at 360, 390, and 768, reporting the offending element's text.
+
+The role-navigation audit signs in as each role and clicks the bell and avatar on the role's top-level screens, asserting the URL stays inside that role's prefix. The Back arrow is only tested from an inner screen that actually renders it (inside an active ride), since top-level tabs do not show it. Sign-in waits for the URL commit plus a role-specific element because map tiles and polling keep `load` from ever firing.
+
+The end-to-end ride flow (only with `PASAKJA_ALLOW_WRITES=1`, since it creates a real ride) opens two browser contexts with geolocation granted at a fixed in-area position. It stops with a clear FAIL if the passenger already has an active ride; otherwise it books a ride, polls for the driver's matching request card (up to 20s) and accepts only that ride, waits for the passenger to reach `/passenger/ride/:id` (up to 15s), checks the Back arrow, checks the Active-ride-banner/municipality-switcher overlap at both 360 and 390, then clicks the bell mid-ride and resumes from Bookings and the home banner (banner polled up to 10s). A `try/finally` always cancels the ride it created and prints the ride id if cancellation fails. Any FAIL sets a non-zero exit code.
 
 Parts that need the API running (`/api/health` reachable, i.e. Apache + MySQL up):
 - Signed-in screenshot capture and the signed-in overflow audit for every role.
-- The bell/avatar/back navigation checks.
-- The two-context end-to-end ride flow (passenger books, driver accepts the just-created request, passenger reaches RideTracking, bell mid-ride, resume from Bookings and the home banner), plus the Active-ride-banner/municipality-switcher overlap check — and this also needs `PASAKJA_ALLOW_WRITES=1`.
+- The bell/avatar/back navigation checks and the admin-overview sideways-scroll check.
+- The two-context end-to-end ride flow and the Active-ride-banner/municipality-switcher overlap check, which also need `PASAKJA_ALLOW_WRITES=1`.
 
 Without the API, only the public onboarding/sign-in screenshots and their overflow checks run. Please still review the committed images and the full matrix in the running preview before release.
