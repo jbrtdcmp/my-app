@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { IconArrowDown, IconBuilding, IconCheckCircle, IconLocation, IconSignal } from '../components/Icons';
-import { cancelRide, getRide, type ApiRide } from '../services/api';
+import { cancelRide, getRide, rideFare, type ApiRide } from '../services/api';
 
 interface FindingDriverProps { onFound: () => void; onCancel: () => void; rideId: number | null; }
 
@@ -44,6 +44,9 @@ export default function FindingDriver({ onFound, onCancel, rideId }: FindingDriv
     return () => window.clearTimeout(timer);
   }, [status, onFound]);
 
+  const fare = ride ? rideFare(ride) : null;
+  const distance = ride?.fare_distance_km ?? ride?.distance_km ?? null;
+
   return <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-warm px-6" style={{ background: '#FFFAF6' }}>
     <div className="absolute inset-0 overflow-hidden pointer-events-none"><div className="absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange/5"/><div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange/8"/></div>
     <div className="relative z-10 flex max-h-full w-full flex-col items-center gap-8 overflow-y-auto py-8 text-center">
@@ -52,9 +55,9 @@ export default function FindingDriver({ onFound, onCancel, rideId }: FindingDriv
         <div><h2 className="mb-2 text-2xl font-semibold text-ink">Finding a tricycle{'.'.repeat(dots)}</h2><p className="text-sm text-ink-soft">Looking for available approved drivers</p></div>
         {ride && <div className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-surface p-4 text-left text-sm">
           <div className="flex items-center gap-2 text-orange"><IconLocation size={16}/><span className="font-medium">{ride.pickup_label}</span></div>
-          <div className="flex items-center gap-2 pl-6 text-xs text-ink-soft"><IconArrowDown size={16}/><span>{ride.distance_km ? `${ride.distance_km} km road distance` : 'Route distance will appear when location pins are available'}</span></div>
+          <div className="flex items-center gap-2 pl-6 text-xs text-ink-soft"><IconArrowDown size={16}/><span>{distance !== null ? `${distance} km road distance` : 'Route distance will appear when location pins are available'}</span></div>
           <div className="flex items-center gap-2"><IconBuilding size={16} className="text-ink-soft"/><span className="font-medium">{ride.destination_label}</span></div>
-          {ride.fare && <p className="border-t border-border pt-2 text-sm font-semibold text-orange">Estimated fare: ₱{ride.fare}</p>}
+          {fare !== null && <p className="border-t border-border pt-2 text-sm font-semibold text-orange">Estimated fare: ₱{fare}</p>}
         </div>}
         {error && <p role="status" className="max-w-xs text-sm text-ink-soft">{error}</p>}
         <button onClick={() => void cancelRequest()} className="btn-secondary px-8">Cancel booking</button>

@@ -344,10 +344,16 @@ async function runEndToEnd(browser) {
 
     await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
     await passenger.waitForTimeout(1500);
-    const pickup = `Carrascal Public Market ${Date.now()}`;
-    await passenger.getByPlaceholder(/Pickup:/i).first().fill(pickup);
-    await passenger.getByPlaceholder(/Destination:/i).first().fill('Carrascal Municipal Hall');
-    await passenger.getByRole('button', { name: /Find a Tricycle/i }).click();
+    await passenger.locator('[data-testid="pickup-landmark-c1"]').click();
+    await passenger.locator('[data-testid="destination-landmark-c2"]').click();
+    const findButton = passenger.getByRole('button', { name: /Find a Tricycle/i }).first();
+    const fareReady = await waitFor(async () => (await findButton.count()) > 0 && await findButton.isEnabled(), 20000);
+    if (!fareReady) {
+      const alertText = await passenger.getByRole('alert').first().textContent().catch(() => '');
+      results.push(`FAIL e2e: fare estimate did not become ready (passenger at ${passenger.url()}${alertText ? ` — ${alertText}` : ''})`);
+      return results;
+    }
+    await findButton.click();
 
     const reachedTracking = await waitFor(
       async () => parseRideId(new URL(passenger.url()).pathname) !== null,
@@ -361,21 +367,20 @@ async function runEndToEnd(browser) {
     }
     results.push(`OK e2e: passenger created ride ${createdRideId} and reached RideTracking`);
 
-    // Driver accepts only the just-created request, matched by unique pickup text.
+    // Driver accepts only the just-created request, matched by ride id.
     await driver.goto(`${BASE_URL}${ROLE_HOME.driver}`, { waitUntil: 'domcontentloaded' });
     const accept = driver
-      .locator('[data-testid="ride-request-card"]')
-      .filter({ has: driver.locator('[data-testid="ride-request-pickup"]', { hasText: pickup }) })
+      .locator(`[data-testid="ride-request-card"][data-ride-id="${createdRideId}"]`)
       .getByRole('button', { name: /^Accept$/i })
       .first();
     const cardReady = await waitFor(async () => (await accept.count()) > 0, 20000);
     if (!cardReady) {
-      results.push(`FAIL e2e: no request card matching "${pickup}" appeared for the driver within 20s`);
+      results.push(`FAIL e2e: no request card for ride ${createdRideId} appeared for the driver within 20s`);
       return results;
     }
     await accept.click();
     await driver.waitForTimeout(3000);
-    results.push(`OK e2e: driver accepted the just-created request (${pickup})`);
+    results.push(`OK e2e: driver accepted the just-created request (ride ${createdRideId})`);
 
     // Passenger reflects the accepted ride, and Back now renders.
     await passenger.waitForTimeout(4000);

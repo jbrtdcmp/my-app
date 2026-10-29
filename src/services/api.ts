@@ -27,9 +27,46 @@ export interface RideRequest {
   pickupPosition?: { lat: number; lng: number } | null;
   destinationPosition?: { lat: number; lng: number } | null;
   municipality: string;
+  destinationMunicipality?: string | null;
   rideType: string;
   discount: string;
   note?: string;
+  quotedFare?: number | null;
+}
+
+export interface FareEstimate {
+  currency: string;
+  distance_km: number;
+  distance_method: string;
+  is_intertown: boolean;
+  ride_type: string;
+  discount: string;
+  base_fare: number;
+  included_km: number;
+  billable_km: number;
+  per_km_rate: number;
+  distance_fare: number;
+  special_trip_multiplier: number;
+  multiplier_amount: number;
+  subtotal: number;
+  discount_percent: number;
+  discount_amount: number;
+  total_before_rounding: number;
+  rounding_adjustment: number;
+  total: number;
+  is_placeholder: boolean;
+  no_surge_pricing: boolean;
+  municipality: string;
+  destination_municipality: string;
+}
+
+export interface FareEstimateRequest {
+  pickupPosition: { lat: number; lng: number };
+  destinationPosition: { lat: number; lng: number };
+  rideType: string;
+  discount: string;
+  municipality?: string | null;
+  destinationMunicipality?: string | null;
 }
 
 export interface ApiRide {
@@ -40,7 +77,10 @@ export interface ApiRide {
   destination_label: string;
   municipality: string;
   ride_type: string;
-  fare: string | null;
+  estimated_fare: number | null;
+  final_fare: number | null;
+  fare_distance_km: number | null;
+  fare_breakdown?: FareEstimate | null;
   distance_km: string | null;
   status: string;
   requested_at: string;
@@ -59,6 +99,10 @@ export interface TrackingSnapshot {
   id: number;
   status: string;
   municipality: string;
+  estimated_fare: number | null;
+  final_fare: number | null;
+  fare_distance_km: number | null;
+  fare_breakdown: FareEstimate | null;
   pickup: { label: string; lat: number | null; lng: number | null };
   destination: { label: string; lat: number | null; lng: number | null };
   driver: { id: number; name: string; phone: string; plate_number: string; body_number: string; toda_name: string } | null;
@@ -76,12 +120,14 @@ export interface EmergencyContact { id: number; municipality: string; service: s
 export class ApiError extends Error {
   status: number;
   details: Record<string, string>;
+  estimate?: FareEstimate;
 
-  constructor(message: string, status: number, details: Record<string, string> = {}) {
+  constructor(message: string, status: number, details: Record<string, string> = {}, estimate?: FareEstimate) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.details = details;
+    this.estimate = estimate;
   }
 }
 
@@ -116,12 +162,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const result = await response.json().catch(() => ({})) as {
     error?: string;
     details?: Record<string, string>;
+    estimate?: FareEstimate;
   } & T;
   if (response.status === 401 && authToken && !path.startsWith('auth/login') && !path.startsWith('auth/register')) {
     storeAuthToken('');
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('pasakja:auth-expired'));
   }
-  if (!response.ok) throw new ApiError(result.error || 'The request failed.', response.status, result.details || {});
+  if (!response.ok) throw new ApiError(result.error || 'The request failed.', response.status, result.details || {}, result.estimate);
   return result;
 }
 
@@ -150,12 +197,24 @@ export async function signOut(): Promise<void> {
   }
 }
 
-export async function createRide(ride: RideRequest): Promise<{ id: number; status: string }> {
-  const result = await request<{ ride: { id: number; status: string } }>('rides', {
+export async function estimateFare(ride: FareEstimateRequest): Promise<FareEstimate> {
+  const result = await request<{ estimate: FareEstimate }>('fares/estimate', {
+    method: 'POST',
+    body: JSON.stringify(ride),
+  });
+  return result.estimate;
+}
+
+export async function createRide(ride: RideRequest): Promise<{ id: number; status: string; municipality?: string; estimated_fare?: number; fare_distance_km?: number; fare_breakdown?: FareEstimate }> {
+  const result = await request<{ ride: { id: number; status: string; municipality?: string; estimated_fare?: number; fare_distance_km?: number; fare_breakdown?: FareEstimate } }>('rides', {
     method: 'POST',
     body: JSON.stringify(ride),
   });
   return result.ride;
+}
+
+export function rideFare(ride: { estimated_fare?: number | null; final_fare?: number | null }): number | null {
+  return ride.final_fare ?? ride.estimated_fare ?? null;
 }
 
 export async function getRides(): Promise<ApiRide[]> {

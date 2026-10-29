@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
 import { IconCheckCircle, IconLocation, IconMap, IconStar, IconX } from '../components/Icons';
-import { cancelRide, createTripShare, getRideTracking, rateRide, updateRideStatus, type TrackingPoint, type TrackingSnapshot } from '../services/api';
+import { cancelRide, createTripShare, getRideTracking, rateRide, rideFare, updateRideStatus, type TrackingPoint, type TrackingSnapshot } from '../services/api';
 import { interpolatePoint } from '../services/tracking';
 import { openDeviceNavigation, publicTripUrl, shareText } from '../services/platform';
 import { useDriverLocation } from '../hooks/useDriverLocation';
@@ -119,6 +119,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
 
   const target = snapshot?.status === 'in_progress' ? snapshot.destination : snapshot?.pickup;
   const targetPosition = target?.lat !== null && target?.lng !== null && target ? { lat: target.lat, lng: target.lng } : null;
+  const fare = snapshot ? rideFare(snapshot) : null;
   const statusLabel = snapshot?.status === 'in_progress' ? 'Next target: destination' : 'Next target: pickup';
   const displayStatus = snapshot?.status === 'in_progress' ? 'in-progress' : 'arriving';
 
@@ -156,6 +157,8 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
           <div className="ml-1 h-4 border-l border-border"/>
           <div className="flex items-start gap-2 text-sm"><span className="mt-1 h-2 w-2 flex-none rounded-full bg-ink"/><span className="text-ink-soft">To</span><span className="min-w-0 font-medium text-ink">{snapshot?.destination.label || 'Loading destination…'}</span></div>
           <div className="border-t border-border pt-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="text-ink-soft">{targetPosition ? `${statusLabel} · ${snapshot?.eta_minutes ?? '—'} min · ${snapshot?.distance_remaining_km ?? '—'} km` : statusLabel}</span>{snapshot?.route_fallback && <span className="text-warning">Approximate route</span>}</div>
+          <div className="border-t border-border pt-2 flex items-center justify-between text-sm"><span className="text-ink-soft">{serverStatus === 'completed' ? 'Final fare' : 'Fixed fare'}</span><span className="font-semibold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</span></div>
+          <p className="text-xs text-ink-soft">Fixed fare. No surge pricing.</p>
         </div>
 
         {targetPosition && <button type="button" onClick={() => openDeviceNavigation({ ...targetPosition, label: target?.label })} className="btn-secondary w-full">Navigate to {snapshot?.status === 'in_progress' ? 'destination' : 'pickup'}</button>}

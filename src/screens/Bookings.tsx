@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconMap } from '../components/Icons';
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from '../components/ui';
-import { getRides, type ApiRide } from '../services/api';
+import { getRides, rideFare, type ApiRide } from '../services/api';
 
 const STATUS_FILTERS = ['All', 'Completed', 'Cancelled'];
 const MUNI_FILTERS = ['All', 'Carrascal', 'Cantilan', 'Madrid', 'Carmen', 'Lanuza'];
@@ -71,6 +71,8 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
           const rideType = RIDE_TYPE_LABELS[ride.ride_type] || ride.ride_type;
           const isActive = ACTIVE_STATUSES.includes(ride.status);
           const canTrack = canResume && isActive && onResumeRide;
+          const fare = rideFare(ride);
+          const distance = ride.fare_distance_km ?? ride.distance_km ?? null;
           return (
             <article key={ride.id} className={`ride-history-card bg-surface rounded-2xl border p-4 ${selected ? 'ride-history-card--selected' : 'border-border'}`}>
               <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="w-full text-left">
@@ -94,8 +96,8 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 text-xs text-ink-soft">
-                    <span className="font-semibold text-orange text-base">{ride.fare ? `₱${ride.fare}` : 'Fare pending'}</span>
-                    {ride.distance_km && <><span>·</span><span>{ride.distance_km} km</span></>}
+                    <span className="font-semibold text-orange text-base">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
+                    {distance !== null && <><span>·</span><span>{distance} km</span></>}
                   </div>
                   <span className="text-xs text-orange font-medium">{selected ? 'Hide details' : 'Details'}</span>
                 </div>

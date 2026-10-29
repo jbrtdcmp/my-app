@@ -25,7 +25,7 @@ interface MapProps {
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
 }
 
-const MUNICIPALITY_CENTERS: Record<string, MapPoint> = {
+export const MUNICIPALITY_CENTERS: Record<string, MapPoint> = {
   carrascal: { lat: 9.3703, lng: 125.9492 },
   cantilan: { lat: 9.3333, lng: 125.9667 },
   madrid: { lat: 9.2624, lng: 125.9635 },

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Map from '../components/Map';
 import { IconBookings, IconChart, IconCheck, IconStar, IconTODA, IconWallet, IconDriver } from '../components/Icons';
 import { StatCard as SharedStatCard } from '../components/ui';
-import { declineRide, getDriverProfile, getRides, type ApiRide } from '../services/api';
+import { declineRide, getDriverProfile, getRides, rideFare, type ApiRide } from '../services/api';
 import { useDriverLocation } from '../hooks/useDriverLocation';
 
 interface DriverDashboardProps {
@@ -11,8 +11,10 @@ interface DriverDashboardProps {
 }
 
 function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccept: () => void; onDecline: () => void }) {
+  const fare = rideFare(ride);
+  const distance = ride.fare_distance_km ?? ride.distance_km ?? null;
   return (
-    <div data-testid="ride-request-card" className="ride-request-card bg-surface rounded-2xl border border-border p-4 animate-fade-in">
+    <div data-testid="ride-request-card" data-ride-id={ride.id} className="ride-request-card bg-surface rounded-2xl border border-border p-4 animate-fade-in">
       {/* Passenger header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-1">
@@ -21,8 +23,8 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
           <p className="text-xs text-ink-soft">{ride.passenger_name || 'Passenger'}</p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-bold text-orange">{ride.fare ? `₱${ride.fare}` : 'Fare pending'}</p>
-          {ride.distance_km && <p className="text-xs text-ink-soft">{ride.distance_km} km</p>}
+          <p className="text-xl font-bold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</p>
+          {distance !== null && <p className="text-xs text-ink-soft">{distance} km</p>}
         </div>
       </div>
 
@@ -229,16 +231,19 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
         <div className="mt-6">
           <h2 className="font-semibold text-base text-ink mb-3">Today's Rides</h2>
           <div className="space-y-2">
-            {completedRides.slice(0, 3).map(ride => (
-              <div key={ride.id} className="bg-surface rounded-xl p-3 border border-border flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-success-bg flex items-center justify-center"><IconCheck size={16} className="text-success"/></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-ink font-medium truncate">{ride.pickup} → {ride.destination}</p>
-                  <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            {completedRides.slice(0, 3).map(ride => {
+              const fare = rideFare(ride);
+              return (
+                <div key={ride.id} className="bg-surface rounded-xl p-3 border border-border flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-success-bg flex items-center justify-center"><IconCheck size={16} className="text-success"/></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-ink font-medium truncate">{ride.pickup} → {ride.destination}</p>
+                    <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                  <span className="text-sm font-bold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
                 </div>
-                <span className="text-sm font-bold text-orange">₱{ride.fare}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
