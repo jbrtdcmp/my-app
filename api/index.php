@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/fare_service.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
@@ -455,6 +457,41 @@ try {
         }
         $route = routeBetween(database($config), $config, (float)$from[0], (float)$from[1], (float)$to[0], (float)$to[1]);
         respond(['route' => $route['geometry'], 'distance_km' => round($route['distance_m'] / 1000, 2), 'distance_m' => round($route['distance_m']), 'eta_minutes' => max(1, (int)ceil($route['duration_s'] / 60)), 'fallback' => $route['fallback'], 'distance_method' => $route['fallback'] ? 'haversine_fallback' : 'road']);
+    }
+
+    if ($segments === ['fares', 'estimate'] && $method === 'POST') {
+        authenticatedUser($config);
+        $input = body();
+        $pickupPoint = $input['pickupPosition'] ?? null;
+        $destinationPoint = $input['destinationPosition'] ?? null;
+        if (!is_array($pickupPoint) || !isset($pickupPoint['lat'], $pickupPoint['lng'])
+            || !is_array($destinationPoint) || !isset($destinationPoint['lat'], $destinationPoint['lng'])) {
+            throw new ApiError(422, 'Pickup and destination pins are required for a fare estimate.');
+        }
+        if (!validPoint($pickupPoint['lat'], $pickupPoint['lng'], $config)) throw new ApiError(422, 'Pickup pin is outside the PASAKJA service area.');
+        if (!validPoint($destinationPoint['lat'], $destinationPoint['lng'], $config)) throw new ApiError(422, 'Destination pin is outside the PASAKJA service area.');
+        $rideType = (string)($input['rideType'] ?? 'regular');
+        if (!in_array($rideType, PASAKJA_RIDE_TYPES, true)) throw new ApiError(422, 'Unknown ride type.');
+        $discount = (string)($input['discount'] ?? 'none');
+        if (!in_array($discount, PASAKJA_DISCOUNTS, true)) throw new ApiError(422, 'Invalid discount type.');
+        try {
+            $estimate = quoteFare(
+                loadFareRules(database($config)),
+                (float)$pickupPoint['lat'],
+                (float)$pickupPoint['lng'],
+                (float)$destinationPoint['lat'],
+                (float)$destinationPoint['lng'],
+                $rideType,
+                $discount,
+                isset($input['municipality']) ? (string)$input['municipality'] : null,
+                isset($input['destinationMunicipality']) ? (string)$input['destinationMunicipality'] : null
+            );
+        } catch (FareValidationException $error) {
+            throw new ApiError(422, $error->getMessage());
+        } catch (FareConfigurationException $error) {
+            throw new ApiError(503, $error->getMessage());
+        }
+        respond(['estimate' => $estimate]);
     }
 
     if (count($segments) === 3 && $segments[0] === 'rides' && $segments[2] === 'tracking' && $method === 'GET') {
