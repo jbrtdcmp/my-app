@@ -192,6 +192,20 @@ function logAdminActivity(PDO $pdo, ?int $actorId, string $action, string $entit
     $stmt->execute([$actorId, $action, $entityType, $entityId, json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
 }
 
+function rideFarePayload(array $ride): array
+{
+    $breakdown = null;
+    if (isset($ride['fare_breakdown_json']) && $ride['fare_breakdown_json'] !== null && $ride['fare_breakdown_json'] !== '') {
+        $decoded = json_decode((string)$ride['fare_breakdown_json'], true);
+        if (is_array($decoded)) $breakdown = $decoded;
+    }
+    foreach (['estimated_fare', 'final_fare', 'fare_distance_km'] as $field) {
+        if (array_key_exists($field, $ride)) $ride[$field] = $ride[$field] === null ? null : (float)$ride[$field];
+    }
+    $ride['fare_breakdown'] = $breakdown;
+    return $ride;
+}
+
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $path = trim((string)($_GET['path'] ?? ''), '/');
 $segments = $path === '' ? [] : explode('/', $path);
@@ -282,7 +296,7 @@ try {
     if ($segments === ['driver', 'profile'] && $method === 'GET') {
         $user = authenticatedUser($config);
         requireRole($user, 'driver');
-        $stmt = database($config)->prepare('SELECT u.id, u.full_name, dp.plate_number, dp.body_number, dp.toda_name, dp.verification_status, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\') AS total_rides, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS rides_today, (SELECT COALESCE(SUM(r.fare), 0) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS earnings_today, (SELECT COALESCE(AVG(rt.stars), 0) FROM ride_ratings rt WHERE rt.driver_id = u.id) AS rating FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.id = ?');
+        $stmt = database($config)->prepare('SELECT u.id, u.full_name, dp.plate_number, dp.body_number, dp.toda_name, dp.verification_status, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\') AS total_rides, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS rides_today, (SELECT COALESCE(SUM(COALESCE(r.final_fare, 0)), 0) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS earnings_today, (SELECT COALESCE(AVG(rt.stars), 0) FROM ride_ratings rt WHERE rt.driver_id = u.id) AS rating FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.id = ?');
         $stmt->execute([$user['id']]);
         $profile = $stmt->fetch();
         if (!$profile) throw new ApiError(404, 'Driver profile not found.');
@@ -503,6 +517,7 @@ try {
         $stmt->execute([$rideId]);
         $ride = $stmt->fetch();
         if (!$ride) throw new ApiError(404, 'Ride not found.');
+        $ride = rideFarePayload($ride);
         $admin = $user['role'] === 'admin';
         $passenger = (int)$ride['passenger_id'] === (int)$user['id'];
         $driver = (int)($ride['driver_id'] ?? 0) === (int)$user['id'];
@@ -524,7 +539,7 @@ try {
             }
         }
         $driverDetails = $ride['driver_id'] ? ['id' => (int)$ride['driver_id'], 'name' => $ride['driver_name'], 'phone' => $ride['driver_phone'], 'plate_number' => $ride['plate_number'], 'body_number' => $ride['body_number'], 'toda_name' => $ride['toda_name']] : null;
-        respond(['ride' => ['id' => (int)$rideId, 'status' => $ride['status'], 'municipality' => $ride['municipality'], 'pickup' => ['label' => $ride['pickup_label'], 'lat' => $ride['pickup_lat'] === null ? null : (float)$ride['pickup_lat'], 'lng' => $ride['pickup_lng'] === null ? null : (float)$ride['pickup_lng']], 'destination' => ['label' => $ride['destination_label'], 'lat' => $ride['destination_lat'] === null ? null : (float)$ride['destination_lat'], 'lng' => $ride['destination_lng'] === null ? null : (float)$ride['destination_lng']], 'driver' => $driverDetails, 'position' => $position, 'stale' => $position ? $position['stale'] : true, 'eta_minutes' => $ride['eta_minutes'] ?? null, 'distance_remaining_km' => $ride['distance_remaining_km'] ?? null, 'route' => $ride['route'] ?? null, 'route_fallback' => $ride['route_fallback'] ?? null]]);
+        respond(['ride' => ['id' => (int)$rideId, 'status' => $ride['status'], 'municipality' => $ride['municipality'], 'estimated_fare' => $ride['estimated_fare'], 'final_fare' => $ride['final_fare'], 'fare_distance_km' => $ride['fare_distance_km'], 'fare_breakdown' => $ride['fare_breakdown'], 'pickup' => ['label' => $ride['pickup_label'], 'lat' => $ride['pickup_lat'] === null ? null : (float)$ride['pickup_lat'], 'lng' => $ride['pickup_lng'] === null ? null : (float)$ride['pickup_lng']], 'destination' => ['label' => $ride['destination_label'], 'lat' => $ride['destination_lat'] === null ? null : (float)$ride['destination_lat'], 'lng' => $ride['destination_lng'] === null ? null : (float)$ride['destination_lng']], 'driver' => $driverDetails, 'position' => $position, 'stale' => $position ? $position['stale'] : true, 'eta_minutes' => $ride['eta_minutes'] ?? null, 'distance_remaining_km' => $ride['distance_remaining_km'] ?? null, 'route' => $ride['route'] ?? null, 'route_fallback' => $ride['route_fallback'] ?? null]]);
     }
 
     if (count($segments) === 3 && $segments[0] === 'rides' && $segments[2] === 'share' && $method === 'POST') {
@@ -567,27 +582,58 @@ try {
         if ($pickup === '' || $destination === '') throw new ApiError(422, 'Pickup and destination are required.');
         $pickupPoint = $input['pickupPosition'] ?? null;
         $destinationPoint = $input['destinationPosition'] ?? null;
-        if ($pickupPoint !== null && (!is_array($pickupPoint) || !validPoint($pickupPoint['lat'] ?? null, $pickupPoint['lng'] ?? null, $config))) throw new ApiError(422, 'Pickup location is invalid or outside the service area.');
-        if ($destinationPoint !== null && (!is_array($destinationPoint) || !validPoint($destinationPoint['lat'] ?? null, $destinationPoint['lng'] ?? null, $config))) throw new ApiError(422, 'Destination location is invalid or outside the service area.');
-        $rideTypes = ['regular', 'pakyaw', 'padala', 'scheduled', 'group'];
-        $discounts = ['none', 'student', 'senior', 'pwd'];
-        $rideType = in_array($input['rideType'] ?? '', $rideTypes, true) ? $input['rideType'] : 'regular';
-        $discount = in_array($input['discount'] ?? '', $discounts, true) ? $input['discount'] : 'none';
-        $town = trim((string)($input['municipality'] ?? 'Carrascal'));
-        if (!in_array(strtolower($town), ['carrascal', 'cantilan', 'madrid', 'carmen', 'lanuza'], true)) throw new ApiError(422, 'Choose a supported municipality.');
-        $route = null;
-        if ($pickupPoint !== null && $destinationPoint !== null) $route = routeBetween(database($config), $config, (float)$pickupPoint['lat'], (float)$pickupPoint['lng'], (float)$destinationPoint['lat'], (float)$destinationPoint['lng']);
-        $stmt = database($config)->prepare('INSERT INTO rides (passenger_id, pickup_label, pickup_lat, pickup_lng, destination_label, destination_lat, destination_lng, municipality, ride_type, discount_type, note, distance_km, distance_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        $stmt->execute([
-            $user['id'], $pickup, $pickupPoint['lat'] ?? null, $pickupPoint['lng'] ?? null,
-            $destination, $destinationPoint['lat'] ?? null, $destinationPoint['lng'] ?? null,
-            $town, $rideType, $discount,
-            mb_substr(trim((string)($input['note'] ?? '')), 0, 500) ?: null,
-            $route ? round($route['distance_m'] / 1000, 2) : null, $route ? ($route['fallback'] ? 'haversine_fallback' : 'road') : null,
-        ]);
-        $rideId = (int)database($config)->lastInsertId();
-        logRideEvent(database($config), $rideId, (int)$user['id'], 'finding', 'Ride requested.');
-        respond(['ride' => ['id' => $rideId, 'status' => 'finding']], 201);
+        if (!is_array($pickupPoint) || !isset($pickupPoint['lat'], $pickupPoint['lng'])
+            || !is_array($destinationPoint) || !isset($destinationPoint['lat'], $destinationPoint['lng'])) {
+            throw new ApiError(422, 'Pickup and destination pins are required.');
+        }
+        if (!validPoint($pickupPoint['lat'], $pickupPoint['lng'], $config)) throw new ApiError(422, 'Pickup location is invalid or outside the service area.');
+        if (!validPoint($destinationPoint['lat'], $destinationPoint['lng'], $config)) throw new ApiError(422, 'Destination location is invalid or outside the service area.');
+        $rideType = (string)($input['rideType'] ?? 'regular');
+        $discount = (string)($input['discount'] ?? 'none');
+        try {
+            $estimate = quoteFare(
+                loadFareRules(database($config)),
+                (float)$pickupPoint['lat'],
+                (float)$pickupPoint['lng'],
+                (float)$destinationPoint['lat'],
+                (float)$destinationPoint['lng'],
+                $rideType,
+                $discount,
+                isset($input['municipality']) ? (string)$input['municipality'] : null,
+                isset($input['destinationMunicipality']) ? (string)$input['destinationMunicipality'] : null
+            );
+        } catch (FareValidationException $error) {
+            throw new ApiError(422, $error->getMessage());
+        } catch (FareConfigurationException $error) {
+            throw new ApiError(503, $error->getMessage());
+        }
+        if (isset($input['quotedFare'])) {
+            if (!is_numeric($input['quotedFare'])) throw new ApiError(422, 'Quoted fare must be a number.');
+            if ((int)round((float)$input['quotedFare'] * 100) !== (int)round((float)$estimate['total'] * 100)) {
+                respond(['error' => 'The fare estimate has changed. Confirm the new fare to continue.', 'estimate' => $estimate], 409);
+            }
+        }
+        $pdo = database($config);
+        $route = routeBetween($pdo, $config, (float)$pickupPoint['lat'], (float)$pickupPoint['lng'], (float)$destinationPoint['lat'], (float)$destinationPoint['lng']);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('INSERT INTO rides (passenger_id, pickup_label, pickup_lat, pickup_lng, destination_label, destination_lat, destination_lng, municipality, ride_type, discount_type, note, distance_km, distance_method, estimated_fare, fare_distance_km, fare_breakdown_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([
+                $user['id'], $pickup, $pickupPoint['lat'], $pickupPoint['lng'],
+                $destination, $destinationPoint['lat'], $destinationPoint['lng'],
+                $estimate['municipality'], $rideType, $discount,
+                mb_substr(trim((string)($input['note'] ?? '')), 0, 500) ?: null,
+                round($route['distance_m'] / 1000, 2), $route['fallback'] ? 'haversine_fallback' : 'road',
+                $estimate['total'], $estimate['distance_km'], json_encode($estimate, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            ]);
+            $rideId = (int)$pdo->lastInsertId();
+            logRideEvent($pdo, $rideId, (int)$user['id'], 'finding', 'Ride requested.');
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+        respond(['ride' => ['id' => $rideId, 'status' => 'finding', 'municipality' => $estimate['municipality'], 'estimated_fare' => $estimate['total'], 'fare_distance_km' => $estimate['distance_km'], 'fare_breakdown' => $estimate]], 201);
     }
 
     if ($segments === ['rides'] && $method === 'GET') {
@@ -605,7 +651,7 @@ try {
             $stmt = $pdo->prepare('SELECT r.*, d.full_name AS driver_name FROM rides r LEFT JOIN users d ON d.id = r.driver_id WHERE r.passenger_id = ? ORDER BY r.requested_at DESC LIMIT 100');
             $stmt->execute([$user['id']]);
         }
-        respond(['rides' => $stmt->fetchAll()]);
+        respond(['rides' => array_map('rideFarePayload', $stmt->fetchAll())]);
     }
 
     if (count($segments) === 2 && $segments[0] === 'rides' && $method === 'GET') {
@@ -619,7 +665,7 @@ try {
         if (!$ride) throw new ApiError(404, 'Ride not found.');
         $canRead = $user['role'] === 'admin' || (int)$ride['passenger_id'] === (int)$user['id'] || ((int)($ride['driver_id'] ?? 0) === (int)$user['id']) || ($user['role'] === 'driver' && $ride['status'] === 'finding');
         if (!$canRead) throw new ApiError(403, 'You cannot view this ride.');
-        respond(['ride' => $ride]);
+        respond(['ride' => rideFarePayload($ride)]);
     }
 
     if (count($segments) === 3 && $segments[0] === 'rides' && $segments[2] === 'accept' && $method === 'POST') {
@@ -669,11 +715,18 @@ try {
         if (!$rideId || !isset($transitions[$next])) throw new ApiError(422, 'Invalid ride status transition.');
         $from = array_search($next, $transitions, true);
         $pdo = database($config);
-        $stmt = $pdo->prepare('UPDATE rides SET status = ?, completed_at = IF(? = \'completed\', CURRENT_TIMESTAMP, completed_at) WHERE id = ? AND status = ? AND driver_id = ?');
-        $stmt->execute([$next, $next, $rideId, $from, $user['id']]);
-        if ($stmt->rowCount() !== 1) throw new ApiError(409, 'Ride status changed; refresh and try again.');
-        logRideEvent($pdo, $rideId, (int)$user['id'], $next);
-        if ($next === 'completed') revokeRideShares($pdo, $rideId);
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('UPDATE rides SET status = ?, completed_at = IF(? = \'completed\', CURRENT_TIMESTAMP, completed_at), final_fare = IF(? = \'completed\', COALESCE(final_fare, estimated_fare), final_fare) WHERE id = ? AND status = ? AND driver_id = ?');
+            $stmt->execute([$next, $next, $next, $rideId, $from, $user['id']]);
+            if ($stmt->rowCount() !== 1) throw new ApiError(409, 'Ride status changed; refresh and try again.');
+            logRideEvent($pdo, $rideId, (int)$user['id'], $next);
+            if ($next === 'completed') revokeRideShares($pdo, $rideId);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
         respond(['ride' => ['id' => (int)$rideId, 'status' => $next]]);
     }
 
