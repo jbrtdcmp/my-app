@@ -13,9 +13,9 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git.
 4. Copy `.env.example` to `.env.local`. Set `VITE_API_BASE_URL` to the Apache URL for this folder. Restart Vite after changing it.
 5. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
-6. Create the local demo accounts by running `C:\xampp\php\php.exe database\seed_demo_accounts.php` from this project folder. Use `Demo1234!` for all three demo logins. The driver account is pre-approved for testing.
+6. Set `PASAKJA_DEMO_PASSWORD` in your shell, then create the local demo accounts by running `C:\xampp\php\php.exe database\seed_demo_accounts_v2.php` from this project folder. The three phone numbers are `09000000001` (passenger), `09000000002` (driver), and `09000000003` (admin). The driver account is pre-approved for testing.
 
-The seed script is for local testing only and refuses web requests. Remove the demo accounts before deploying this database publicly.
+The seed script is for local testing only and refuses web requests. It reads the database configuration from `api/config.local.php`, never writes passwords to the console, and leaves existing accounts unchanged. Remove the demo accounts before deploying this database publicly.
 
 ## Before deployment
 
