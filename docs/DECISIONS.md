@@ -8,6 +8,7 @@
 - Add persisted, rate-limited SOS events, admin notifications/activity records, configurable emergency contacts, and expiring/revocable trip-share tokens. Emergency contact values remain visibly unconfigured until an admin supplies real local numbers.
 - Keep device location and map routing behind small frontend services. Use browser geolocation until a native Capacitor shell is installed; never fabricate a driver position.
 - Sequence work: (1) schema/API auth and tracking/location, (2) route guidance, (3) SOS/share/admin view, (4) sign-in feedback and API documentation, (5) available automated checks and manual test plan.
+- Existing `system_settings` rows `base_fare` and `distance_rate` are retained in the database for compatibility but are not used by fare calculation. Fare pricing uses `fare_settings`, `municipality_fares`, and `intertown_fares` only.
 
 ## Validation
 - Run the requested focused checks after each item where the repository has compatible tooling. The starting repository has no Composer/PHPUnit or Vitest setup; inspect installed/runtime tooling before choosing a safe fallback.
