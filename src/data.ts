@@ -13,6 +13,8 @@ export type Landmark = {
   name: string;
   type: 'market' | 'hall' | 'church' | 'school' | 'port' | 'terminal' | 'other';
   barangay: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type FareZone = {

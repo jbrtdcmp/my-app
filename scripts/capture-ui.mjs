@@ -134,6 +134,22 @@ async function waitFor(predicate, timeout, interval = 500) {
   return false;
 }
 
+// Landmark chips only carry a pin when they define coordinates. Otherwise the
+// app asks the passenger to confirm the point, so tap the map for them.
+async function chooseLandmarkPin(page, testId, field) {
+  await page.locator(`[data-testid="${testId}"]`).click();
+  const mapHint = page.locator('.pasakja-map-hint');
+  const needsPin = await waitFor(async () => {
+    if ((await mapHint.count()) === 0) return false;
+    const text = await mapHint.first().textContent().catch(() => '');
+    return /Tap the map to confirm/i.test(text ?? '');
+  }, 2000, 100);
+  if (!needsPin) return;
+  const position = field === 'pickup' ? { x: 120, y: 140 } : { x: 260, y: 220 };
+  await page.locator('.pasakja-leaflet-map').click({ position });
+  await waitFor(async () => (await page.locator('.pasakja-map-hint').count()) === 0, 5000, 100);
+}
+
 // Overflow audit: ignore Leaflet internals and any horizontally scrollable
 // ancestor (chip rows are meant to scroll). Report only a sideways-scrolling
 // document or an element overflowing the viewport outside such containers.
@@ -344,8 +360,8 @@ async function runEndToEnd(browser) {
 
     await passenger.goto(`${BASE_URL}${ROLE_HOME.passenger}`, { waitUntil: 'domcontentloaded' });
     await passenger.waitForTimeout(1500);
-    await passenger.locator('[data-testid="pickup-landmark-c1"]').click();
-    await passenger.locator('[data-testid="destination-landmark-c2"]').click();
+    await chooseLandmarkPin(passenger, 'pickup-landmark-c1', 'pickup');
+    await chooseLandmarkPin(passenger, 'destination-landmark-c2', 'destination');
     const findButton = passenger.getByRole('button', { name: /Find a Tricycle/i }).first();
     const fareReady = await waitFor(async () => (await findButton.count()) > 0 && await findButton.isEnabled(), 20000);
     if (!fareReady) {

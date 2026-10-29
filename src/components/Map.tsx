@@ -18,6 +18,7 @@ interface MapProps {
   destinationPosition?: MapPoint | null;
   currentPosition?: MapPoint | null;
   activePickField?: 'pickup' | 'destination' | null;
+  pickHint?: string;
   onMapPick?: (point: MapPoint) => void;
   onLocationFound?: (point: MapPoint) => void;
   driverPosition?: MapPoint | null;
@@ -25,6 +26,7 @@ interface MapProps {
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
 }
 
+// These town centers must match PASAKJA_TOWN_CENTERS in api/fare_service.php.
 export const MUNICIPALITY_CENTERS: Record<string, MapPoint> = {
   carrascal: { lat: 9.3703, lng: 125.9492 },
   cantilan: { lat: 9.3333, lng: 125.9667 },
@@ -96,7 +98,7 @@ function LocateControl({ onLocationFound }: { onLocationFound?: (point: MapPoint
   </>;
 }
 
-export default function Map({ activeMunicipality, className = '', compact = false, pickupPosition, destinationPosition, currentPosition, activePickField, onMapPick, onLocationFound, driverPosition, driverHeading, routeGeometry }: MapProps) {
+export default function Map({ activeMunicipality, className = '', compact = false, pickupPosition, destinationPosition, currentPosition, activePickField, pickHint, onMapPick, onLocationFound, driverPosition, driverHeading, routeGeometry }: MapProps) {
   const center = MUNICIPALITY_CENTERS[activeMunicipality ?? 'carrascal'] ?? MUNICIPALITY_CENTERS.carrascal;
   const centerExpression = useMemo<LatLngExpression>(() => [center.lat, center.lng], [center.lat, center.lng]);
   const canPick = Boolean(activePickField && onMapPick);
@@ -116,7 +118,7 @@ export default function Map({ activeMunicipality, className = '', compact = fals
         {driverPosition && <Marker position={[driverPosition.lat, driverPosition.lng]} icon={driverIcon(driverHeading)} title="Driver"/>}
         <LocateControl onLocationFound={onLocationFound}/>
       </MapContainer>
-      {canPick && <div className="pasakja-map-hint">Tap the map to set {activePickField}</div>}
+      {canPick && <div className="pasakja-map-hint">{pickHint ?? `Tap the map to set ${activePickField}`}</div>}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Map, { MUNICIPALITY_CENTERS, type MapPoint } from '../components/Map';
+import Map, { type MapPoint } from '../components/Map';
 import { IconCheck, IconChevronDown, IconLocation, IconDestination, IconMap } from '../components/Icons';
 import { MUNICIPALITIES, RIDE_TYPES, type Landmark, type Municipality, type RideType } from '../data';
 import { estimateFare, getRides, ApiError, type ApiRide, type FareEstimate, type RideRequest } from '../services/api';
@@ -19,13 +19,6 @@ const DISCOUNTS = [
 ];
 
 const peso = (value: number) => `₱${Number.isInteger(value) ? value : value.toFixed(2)}`;
-
-function landmarkPoint(municipalityId: string, index: number): MapPoint {
-  const center = MUNICIPALITY_CENTERS[municipalityId] ?? MUNICIPALITY_CENTERS.carrascal;
-  const angle = (index * 137.5) * Math.PI / 180;
-  const radius = 0.004 + (index % 3) * 0.001;
-  return { lat: center.lat + Math.sin(angle) * radius, lng: center.lng + Math.cos(angle) * radius };
-}
 
 function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -136,6 +129,8 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
   const [destinationPosition, setDestinationPosition] = useState<MapPoint | null>(null);
   const [currentPosition, setCurrentPosition] = useState<MapPoint | null>(null);
   const [activePickField, setActivePickField] = useState<'pickup' | 'destination' | null>(null);
+  const [pendingPin, setPendingPin] = useState<'pickup' | 'destination' | null>(null);
+  const [pinHint, setPinHint] = useState('');
   const [notes, setNotes] = useState('');
   const [bookingError, setBookingError] = useState('');
   const [sheetExpanded, setSheetExpanded] = useState(true);
@@ -201,6 +196,15 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
     setPickup('');
     setDestination('');
     setActivePickField(null);
+    setPendingPin(null);
+    setPinHint('');
+  };
+
+  const promptForPin = (field: 'pickup' | 'destination') => {
+    setActivePickField(field);
+    setPendingPin(field);
+    setPinHint(`Tap the map to confirm the ${field} point.`);
+    setSheetExpanded(false);
   };
 
   const handleMunicipalityChange = (id: string) => {
@@ -208,17 +212,31 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
     clearPins();
   };
 
-  const choosePickupLandmark = (landmark: Landmark, index: number) => {
+  const choosePickupLandmark = (landmark: Landmark) => {
     setPickup(landmark.name);
-    setPickupPosition(landmarkPoint(pickupMuni.id, index));
     setCurrentPosition(null);
-    setActivePickField(null);
+    if (landmark.lat !== undefined && landmark.lng !== undefined) {
+      setPickupPosition({ lat: landmark.lat, lng: landmark.lng });
+      setActivePickField(null);
+      setPendingPin(null);
+      setPinHint('');
+    } else {
+      setPickupPosition(null);
+      promptForPin('pickup');
+    }
   };
 
-  const chooseDestinationLandmark = (landmark: Landmark, index: number) => {
+  const chooseDestinationLandmark = (landmark: Landmark) => {
     setDestination(landmark.name);
-    setDestinationPosition(landmarkPoint(destinationMuni.id, index));
-    setActivePickField(null);
+    if (landmark.lat !== undefined && landmark.lng !== undefined) {
+      setDestinationPosition({ lat: landmark.lat, lng: landmark.lng });
+      setActivePickField(null);
+      setPendingPin(null);
+      setPinHint('');
+    } else {
+      setDestinationPosition(null);
+      promptForPin('destination');
+    }
   };
 
   const canBook = Boolean(pickupPosition && destinationPosition && estimate && !estimateLoading);
@@ -256,7 +274,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
     }
   };
 
-  const bookingHint = !pickupPosition || !destinationPosition
+  const bookingHint = pinHint || (!pickupPosition || !destinationPosition
     ? 'Set both pickup and destination pins on the map to book.'
     : estimateLoading
       ? 'Calculating fixed fare…'
@@ -264,7 +282,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
         ? 'Fare estimate unavailable. Adjust your pins and try again.'
         : !estimate
           ? 'Waiting for the fare estimate…'
-          : 'Fixed fare. No surge pricing.';
+          : 'Fixed fare. No surge pricing.');
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -277,20 +295,29 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
           destinationPosition={destinationPosition}
           currentPosition={currentPosition}
           activePickField={activePickField}
+          pickHint={pinHint || undefined}
           onMapPick={point => {
             if (activePickField === 'pickup') {
               setPickupPosition(point);
               setCurrentPosition(null);
-              setPickup(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
+              if (pendingPin !== 'pickup') setPickup(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
             } else if (activePickField === 'destination') {
               setDestinationPosition(point);
-              setDestination(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
+              if (pendingPin !== 'destination') setDestination(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
             }
+            setActivePickField(null);
+            setPendingPin(null);
+            setPinHint('');
+            setSheetExpanded(true);
           }}
           onLocationFound={point => {
             setPickupPosition(point);
             setCurrentPosition(point);
             setPickup('Current location');
+            setActivePickField(null);
+            setPendingPin(null);
+            setPinHint('');
+            setSheetExpanded(true);
           }}
         />
         {/* Municipality switcher overlay */}
@@ -350,8 +377,8 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                 <IconLocation size={18} className="text-orange flex-shrink-0"/>
                 <input
                   value={pickup}
-                  onFocus={() => setActivePickField('pickup')}
-                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); }}
+                  onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
+                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
                   className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
                 />
@@ -361,13 +388,14 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                 <IconDestination size={18} className="text-ink-soft flex-shrink-0"/>
                 <input
                   value={destination}
-                  onFocus={() => setActivePickField('destination')}
-                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); }}
+                  onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
+                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder="Destination: Where to go?"
                   className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
                 />
               </div>
             </div>
+            {pinHint && <p role="status" className="text-xs font-medium text-orange">{pinHint}</p>}
           </div>
         ) : (
           <div className="px-4 pb-6 space-y-4">
@@ -380,7 +408,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   From town
                   <select
                     value={fromTown}
-                    onChange={event => { setFromTown(event.target.value); setPickupPosition(null); setPickup(''); setCurrentPosition(null); }}
+                    onChange={event => { setFromTown(event.target.value); setPickupPosition(null); setPickup(''); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
                     className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:outline-none focus:border-orange"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -390,7 +418,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   To town
                   <select
                     value={toTown}
-                    onChange={event => { setToTown(event.target.value); setDestinationPosition(null); setDestination(''); }}
+                    onChange={event => { setToTown(event.target.value); setDestinationPosition(null); setDestination(''); setPendingPin(null); setPinHint(''); }}
                     className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:outline-none focus:border-orange"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
@@ -405,8 +433,8 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                 <IconLocation size={18} className="text-orange flex-shrink-0"/>
                 <input
                   value={pickup}
-                  onFocus={() => setActivePickField('pickup')}
-                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); }}
+                  onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
+                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
                   className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
                 />
@@ -416,8 +444,8 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                 <IconDestination size={18} className="text-ink-soft flex-shrink-0"/>
                 <input
                   value={destination}
-                  onFocus={() => setActivePickField('destination')}
-                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); }}
+                  onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
+                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder="Destination: Where to go?"
                   className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
                 />
@@ -428,11 +456,11 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             <div data-testid="quick-pickup">
               <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Quick Pickup in {pickupMuni.name}</p>
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {pickupMuni.landmarks.map((lm, index) => (
+                {pickupMuni.landmarks.map(lm => (
                   <button
                     key={lm.id}
                     data-testid={`pickup-landmark-${lm.id}`}
-                    onClick={() => choosePickupLandmark(lm, index)}
+                    onClick={() => choosePickupLandmark(lm)}
                     className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange transition-colors"
                   >
                     {lm.name.replace(pickupMuni.name + ' ', '')}
@@ -445,11 +473,11 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             <div data-testid="quick-destination">
               <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Quick Destination in {destinationMuni.name}</p>
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {destinationMuni.landmarks.map((lm, index) => (
+                {destinationMuni.landmarks.map(lm => (
                   <button
                     key={lm.id}
                     data-testid={`destination-landmark-${lm.id}`}
-                    onClick={() => chooseDestinationLandmark(lm, index)}
+                    onClick={() => chooseDestinationLandmark(lm)}
                     className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange transition-colors"
                   >
                     {lm.name.replace(destinationMuni.name + ' ', '')}
