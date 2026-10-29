@@ -150,7 +150,8 @@
   cursor: not-allowed;
 }
 .btn-spinner { width: var(--icon-small); height: var(--icon-small); border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin-wheel .7s linear infinite; }
-button:focus-visible, a:focus-visible { outline: 2px solid #d86f2f66; outline-offset: 2px; }
+.sos-trigger--active { border-color: var(--color-danger) !important; color: #fff !important; background: var(--color-danger) !important; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--color-orange-dark); outline-offset: 2px; }
 
 /* Shared form controls from the Forms foundation. */
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.bg-transparent),
@@ -512,7 +513,7 @@ svg[viewBox="0 0 24 24"] :is(path, circle, rect, line, polyline, polygon) { stro
 .py-3\.5 { padding-block: var(--space-lg); }
 .px-2\.5 { padding-inline: var(--space-md); }
 @media (min-width: 768px) { .ride-tracking-map { right: var(--driver-sheet-width); } }
-button:not(.system-toggle):not(.bottom-navigation__tab):not(.app-navigation-bar__action):not(.btn-icon):not(.btn-small):not(.btn-large):not(.app-button):not(.app-icon-button):not([class*="auth-"]):not([class*="rounded-full"]) {
+button:not(.system-toggle):not(.bottom-navigation__tab):not(.app-navigation-bar__action):not(.btn-icon):not(.btn-small):not(.btn-large):not(.app-button):not(.app-icon-button):not(.ride-history-card__toggle):not(.profile-layout__avatar):not([class*="auth-"]):not([class*="rounded-full"]) {
   height: var(--control-default);
   min-height: var(--control-default);
   position: relative;

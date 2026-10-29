@@ -11,19 +11,22 @@ export default function SosControl({ rideId = null, municipality, className = ''
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [locationNotice, setLocationNotice] = useState('');
+  const [contactsError, setContactsError] = useState('');
   const [town, setTown] = useState(municipality);
 
   const confirmSos = async () => {
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setLocationNotice(''); setContactsError('');
     let point = null;
-    try { point = await getDeviceLocation(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Location unavailable; continuing without it.'); }
+    try { point = await getDeviceLocation(); } catch (error) { setLocationNotice(error instanceof Error ? error.message : 'Location unavailable; continuing without it.'); }
     try {
       const result = await createSos({ rideId, lat: point?.lat, lng: point?.lng });
       setEventId(result.event.id);
       setTown(result.ride?.municipality || municipality);
       setActive(true);
       setOpen(true);
-      setContacts(await getEmergencyContacts(result.ride?.municipality || municipality));
+      try { setContacts(await getEmergencyContacts(result.ride?.municipality || municipality)); }
+      catch (error) { setContactsError(error instanceof Error ? error.message : 'Emergency contacts could not be loaded.'); }
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not send the SOS alert. Call emergency services directly.'); }
     finally { setBusy(false); }
   };
@@ -49,7 +52,7 @@ export default function SosControl({ rideId = null, municipality, className = ''
   };
 
   return <>
-    <button type="button" onClick={() => { setMessage(''); setOpen(true); }} className={className || 'w-full rounded-xl border-2 border-danger/30 bg-danger/5 py-3 text-sm font-semibold text-danger'}>Emergency / SOS</button>
+    <button type="button" onClick={() => { setMessage(''); setOpen(true); }} className={`${className || 'w-full rounded-xl border-2 border-danger/30 bg-danger/5 py-3 text-sm font-semibold text-danger'}${active ? ' sos-trigger--active' : ''}`}>{active ? 'SOS active — view' : 'Emergency / SOS'}</button>
     {message && !open && <p role="status" className="mt-2 text-xs text-danger">{message}</p>}
     {open && <div className="dialog-backdrop fixed inset-0 z-[1000] flex items-end justify-center px-4 md:items-center">
       <section className="dialog-card w-full max-w-md rounded-t-2xl p-5 md:rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="sos-title">
@@ -59,16 +62,19 @@ export default function SosControl({ rideId = null, municipality, className = ''
         </div>
         {!active ? <>
           <p className="mb-4 text-sm text-ink-soft">This sends your current location and an alert to PASAKJA admins. If you need immediate help, call local emergency services.</p>
+          {locationNotice && <p role="status" className="mb-3 text-xs text-warning">{locationNotice}</p>}
           {message && <p role="status" className="mb-3 text-xs text-danger">{message}</p>}
           <p className="mb-4 rounded-lg bg-danger/5 px-3 py-2 text-xs text-danger">PASAKJA does not replace calling emergency services.</p>
           <div className="flex gap-3"><button type="button" onClick={() => setOpen(false)} className="btn-secondary flex-1">Cancel</button><button type="button" disabled={busy} onClick={() => void confirmSos()} className="btn-primary flex-1 bg-danger border-danger disabled:opacity-60">{busy ? 'Sending…' : 'Confirm SOS'}</button></div>
         </> : <>
           <p className="mb-3 text-sm text-ink-soft">Your SOS alert has been sent to PASAKJA admins for {town}.</p>
           <p className="mb-2 text-xs font-semibold uppercase text-ink-soft">Emergency contacts</p>
-          <div className="mb-4 space-y-2">{contacts.map(contact => <div key={contact.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><span className="text-sm text-ink">{contact.label}{Boolean(contact.is_placeholder) && <span className="ml-1 text-xs text-warning">Number not configured</span>}</span>{contact.phone ? <a href={`tel:${contact.phone}`} className="font-semibold text-orange">Call</a> : <span className="text-xs text-ink-soft">Contact admin to add number</span>}</div>)}</div>
+          {contactsError && <p role="status" className="mb-3 text-xs text-danger">Emergency contacts could not be loaded. Call local emergency services directly.</p>}
+          <div className="mb-4 space-y-2">{contacts.map(contact => <div key={contact.id} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"><span className="text-sm text-ink">{contact.label}{Boolean(contact.is_placeholder) && <span className="ml-1 text-xs text-warning">Number not configured</span>}</span>{contact.phone ? <a href={`tel:${contact.phone}`} className="font-semibold text-orange-dark">Call</a> : <span className="text-xs text-ink-soft">Contact admin to add number</span>}</div>)}</div>
           <button type="button" disabled={!rideId || busy} onClick={() => void shareTrip()} className="btn-secondary mb-2 w-full disabled:opacity-50">Share my live trip</button>
           <button type="button" disabled={busy} onClick={() => void markSafe()} className="btn-primary w-full">{busy ? 'Please wait…' : "I'm safe"}</button>
           <p className="mt-3 text-center text-xs text-danger">PASAKJA does not replace calling emergency services.</p>
+          {locationNotice && <p role="status" className="mt-2 text-center text-xs text-warning">{locationNotice}</p>}
           {message && <p role="status" className="mt-2 text-center text-xs text-success">{message}</p>}
         </>}
       </section>

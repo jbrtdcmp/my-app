@@ -14,7 +14,8 @@ import type { AdminTab } from './screens/AdminDashboard';
 import Map from './components/Map';
 import PublicTrip from './screens/PublicTrip';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
-import { acceptRide, authenticate, createRide, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
+import { acceptRide, authenticate, createRide, getAdminSos, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
+import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
 import { useBackNavigation } from './navigation/useBackNavigation';
 
 type Screen = AppScreen;
@@ -35,11 +36,13 @@ const SCREEN_TITLES: Record<Screen, string> = {
 const rideHeaderTitle = (rideState: RideState, screen: Screen) =>
   rideState === 'idle' ? SCREEN_TITLES[screen] : rideState === 'finding' ? 'Finding a ride' : 'Ride details';
 
-function RoleSidebar({ activeScreen, onNavigate, onLogout, role, user }: {
+function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosCount, user }: {
   activeScreen: Screen;
   onNavigate: (s: Screen) => void;
   onLogout: () => void;
+  onOpenSos: () => void;
   role: UserRole;
+  sosCount: number;
   user: ApiUser | null;
 }) {
   const links = useRoleRoutes(role).menu;
@@ -56,6 +59,11 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, role, user }: {
           </div>
         </div>
       </div>
+
+      {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-xl border border-danger/30 bg-danger/5 px-3 py-2 text-left text-danger">
+        <span className="flex items-center gap-2 text-xs font-semibold"><IconAlerts size={16}/> Active SOS</span>
+        <span className="min-w-5 rounded-full bg-danger px-1.5 text-center text-xs font-semibold text-white">{sosCount}</span>
+      </button>}
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -117,7 +125,7 @@ function RoleBottomTabBar({ activeScreen, onNavigate, role }: {
   })}/>;
 }
 
-function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, activeScreen, role }: { title: string; onBack?: () => void; onAlerts: () => void; onProfile: () => void; onLogout: () => void; onNavigate: (screen: Screen) => void; activeScreen: Screen; role: UserRole }) {
+function RoleTopBar({ title, onBack, onAlerts, onOpenSos, onProfile, onLogout, onNavigate, activeScreen, role, sosCount }: { title: string; onBack?: () => void; onAlerts: () => void; onOpenSos: () => void; onProfile: () => void; onLogout: () => void; onNavigate: (screen: Screen) => void; activeScreen: Screen; role: UserRole; sosCount: number }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -142,6 +150,7 @@ function RoleTopBar({ title, onBack, onAlerts, onProfile, onLogout, onNavigate, 
     <div className="md:hidden relative"><TopBar title={title}
       leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
       trailing={<div className={`app-navigation-bar__actions${role === 'admin' ? ' app-navigation-bar__actions--admin' : ''}`}>
+        {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{sosCount}</span></button>}
         <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
         <button type="button" onClick={onProfile} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
         {role === 'admin' && <div className="admin-settings-anchor" ref={settingsRef}>
@@ -211,6 +220,7 @@ export default function App() {
   const [role, setRole] = useState<UserRole>('passenger');
   const [currentUser, setCurrentUser] = useState<ApiUser | null>(null);
   const [activeRideId, setActiveRideId] = useState<number | null>(null);
+  const [activeSosCount, setActiveSosCount] = useState(0);
   const [authNotice, setAuthNotice] = useState('');
   const navigateToPath = (destination: string, screen: Screen, replace = false, preserveRideState = false) => {
     const historyState = { role, routePath: destination, previousPath: window.history.state?.routePath };
@@ -263,6 +273,23 @@ export default function App() {
     return () => { mounted = false; window.removeEventListener('pasakja:auth-expired', handleExpired); };
   }, []);
 
+  useEffect(() => {
+    if (appState !== 'app' || role !== 'admin') { setActiveSosCount(0); return; }
+    let mounted = true;
+    const load = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const events = await getAdminSos();
+        if (mounted) setActiveSosCount(events.filter(event => event.status === 'active').length);
+      } catch { }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { mounted = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [appState, role]);
+
   const restoreRideState = (id: number) => {
     setActiveRideId(id);
     getRide(id).then(ride => {
@@ -273,6 +300,10 @@ export default function App() {
   };
   const navigateScreen = (screen: Screen, replace = false) => {
     navigateToPath(pathForScreen(role, screen), screen, replace);
+  };
+  const openAdminSos = () => {
+    setAdminTab('sos');
+    navigateToPath(pathForScreen(role, 'admin'), 'admin');
   };
   const handleResumeRide = (rideId: number) => {
     navigateToPath(pathForRide(role, rideId), 'bookings', false, true);
@@ -392,7 +423,9 @@ export default function App() {
           activeScreen={activeScreen}
           onNavigate={navigateScreen}
           onLogout={handleLogout}
+          onOpenSos={openAdminSos}
           role={role}
+          sosCount={activeSosCount}
           user={currentUser}
         />
       </div>}
@@ -402,11 +435,13 @@ export default function App() {
           title={rideHeaderTitle(rideState, activeScreen)}
           onBack={rideState !== 'idle' ? backToHome : undefined}
           onAlerts={() => navigateScreen('alerts')}
+          onOpenSos={openAdminSos}
           onProfile={() => navigateScreen('profile')}
           onLogout={handleLogout}
           onNavigate={navigateScreen}
           activeScreen={activeScreen}
           role={role}
+          sosCount={activeSosCount}
         />
 
         {/* Desktop location bar */}
@@ -416,6 +451,7 @@ export default function App() {
             <span className="text-xs text-ink-soft">CarCanMadCarLan · Surigao del Sur</span>
           </div>
           <div className="app-navigation-bar__actions">
+            {role === 'admin' && activeSosCount > 0 && <button type="button" onClick={openAdminSos} aria-label={`${activeSosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{activeSosCount}</span></button>}
             <button type="button" onClick={() => navigateScreen('alerts')} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
             <button type="button" onClick={() => navigateScreen('profile')} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
           </div>

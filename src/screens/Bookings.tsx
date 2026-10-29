@@ -75,7 +75,7 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
           const distance = ride.fare_distance_km ?? ride.distance_km ?? null;
           return (
             <article key={ride.id} className={`ride-history-card bg-surface rounded-2xl border p-4 ${selected ? 'ride-history-card--selected' : 'border-border'}`}>
-              <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="w-full text-left">
+              <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="ride-history-card__toggle w-full text-left">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="min-w-0">
                     <p className="text-xs text-ink-soft mb-1">{new Date(ride.requested_at).toLocaleString()}</p>

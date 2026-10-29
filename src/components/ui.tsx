@@ -90,7 +90,7 @@ const STATUS_PRESENTATION: Record<string, { label: string; tone: string }> = {
   accepted: { label: 'Accepted', tone: 'accepted' },
   verified: { label: 'Verified', tone: 'accepted' },
   active: { label: 'Active', tone: 'accepted' },
-  'sos-active': { label: 'Active', tone: 'cancelled' },
+  sos_active: { label: 'Active', tone: 'cancelled' },
   resolved: { label: 'Resolved', tone: 'completed' },
   in_progress: { label: 'In progress', tone: 'in-progress' },
   boarded: { label: 'In progress', tone: 'in-progress' },

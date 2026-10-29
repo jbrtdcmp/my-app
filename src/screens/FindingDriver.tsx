@@ -9,10 +9,22 @@ export default function FindingDriver({ onFound, onCancel, rideId }: FindingDriv
   const [status, setStatus] = useState<'searching' | 'found'>('searching');
   const [dots, setDots] = useState(1);
   const [error, setError] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const cancelRequest = async () => {
-    if (rideId) await cancelRide(rideId).catch(() => {});
-    onCancel();
+    if (cancelling) return;
+    if (!rideId) { onCancel(); return; }
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelRide(rideId);
+      onCancel();
+    } catch (failure) {
+      setCancelError(failure instanceof Error ? failure.message : 'Could not cancel this booking. Please try again.');
+    } finally {
+      setCancelling(false);
+    }
   };
 
   useEffect(() => {
@@ -60,7 +72,8 @@ export default function FindingDriver({ onFound, onCancel, rideId }: FindingDriv
           {fare !== null && <p className="border-t border-border pt-2 text-sm font-semibold text-orange">Estimated fare: ₱{fare}</p>}
         </div>}
         {error && <p role="status" className="max-w-xs text-sm text-ink-soft">{error}</p>}
-        <button onClick={() => void cancelRequest()} className="btn-secondary px-8">Cancel booking</button>
+        {cancelError && <p role="alert" className="max-w-xs text-sm text-danger">{cancelError}</p>}
+        <button type="button" disabled={cancelling} onClick={() => void cancelRequest()} className="btn-secondary px-8">{cancelling ? 'Cancelling…' : 'Cancel booking'}</button>
         <p className="text-xs text-ink-soft"><IconSignal size={16} className="mr-1 inline-block"/>Your request is saved and will keep checking while this screen is open.</p>
       </> : <>
         <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-success bg-success-bg animate-fade-in"><IconCheckCircle size={24} className="text-success"/></div>

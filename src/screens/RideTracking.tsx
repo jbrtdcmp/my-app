@@ -15,7 +15,7 @@ const STATUS_CONFIG: Record<RideStatus, { label: string }> = {
   completed: { label: 'Ride completed' },
 };
 
-function ReviewModal({ onSubmit, onClose, driver }: { onSubmit: (stars: number, comment: string) => void; onClose: () => void; driver: TrackingSnapshot['driver'] }) {
+function ReviewModal({ onSubmit, onClose, driver, error, busy }: { onSubmit: (stars: number, comment: string) => void; onClose: () => void; driver: TrackingSnapshot['driver']; error: string; busy: boolean }) {
   const [stars, setStars] = useState(5);
   const [comment, setComment] = useState('');
   return <div className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center px-4 md:items-center">
@@ -24,7 +24,8 @@ function ReviewModal({ onSubmit, onClose, driver }: { onSubmit: (stars: number, 
       <p className="mb-4 text-sm text-ink-soft">{driver?.name || 'Your driver'}{driver?.plate_number ? ` · ${driver.plate_number}` : ''}</p>
       <div className="rating-feedback-card mb-4"><div className="flex justify-center gap-2">{[1,2,3,4,5].map(value => <button key={value} aria-label={`${value} stars`} onClick={() => setStars(value)} className="rating-feedback-card__star"><IconStar size={24} className={value <= stars ? 'text-warning' : 'text-border'} filled={false}/></button>)}</div></div>
       <textarea value={comment} onChange={event => setComment(event.target.value)} placeholder="Leave a comment (optional)..." className="mb-4 w-full px-4 py-3" rows={3}/>
-      <button onClick={() => onSubmit(stars, comment)} className="btn-primary w-full">Submit review</button>
+      {error && <p role="alert" className="mb-3 text-sm text-danger">{error}</p>}
+      <button disabled={busy} onClick={() => onSubmit(stars, comment)} className="btn-primary w-full">{busy ? 'Submitting…' : 'Submit review'}</button>
     </div>
   </div>;
 }
@@ -34,6 +35,9 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   const [displayPosition, setDisplayPosition] = useState<TrackingPoint | null>(null);
   const [serverStatus, setServerStatus] = useState('accepted');
   const [showReview, setShowReview] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewBusy, setReviewBusy] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
   const [trackingError, setTrackingError] = useState('');
@@ -54,7 +58,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
       setSnapshot(next);
       setServerStatus(next.status);
       setTrackingError('');
-      if (next.status === 'completed' && !isDriver) setShowReview(true);
+      if (next.status === 'completed' && !isDriver && !reviewDismissed) setShowReview(true);
       if (next.position) {
         const from = previousPosition.current || next.position;
         previousPosition.current = next.position;
@@ -73,15 +77,18 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
         setDisplayPosition(null);
       }
     } catch (error) { setTrackingError(error instanceof Error ? error.message : 'Could not refresh live trip details.'); }
-  }, [rideId, isDriver]);
+  }, [rideId, isDriver, reviewDismissed]);
 
   useEffect(() => {
+    if (!rideId || ['completed', 'cancelled'].includes(serverStatus)) return;
     void refresh();
     const timer = window.setInterval(() => void refresh(), 3500);
     const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
     document.addEventListener('visibilitychange', onVisible);
-    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); if (frame.current !== null) cancelAnimationFrame(frame.current); };
-  }, [refresh]);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [refresh, rideId, serverStatus]);
+
+  useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); }, []);
 
   const advance = async () => {
     if (!rideId || busy) return;
@@ -102,8 +109,21 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   };
 
   const submitReview = async (stars: number, comment: string) => {
-    try { if (rideId) await rateRide(rideId, stars, comment); setShowReview(false); onComplete(); }
-    catch (error) { setTrackingError(error instanceof Error ? error.message : 'Could not save your review.'); }
+    if (reviewBusy) return;
+    setReviewBusy(true);
+    setReviewError('');
+    try {
+      if (rideId) await rateRide(rideId, stars, comment);
+      setShowReview(false);
+      onComplete();
+    } catch (error) { setReviewError(error instanceof Error ? error.message : 'Could not save your review.'); }
+    finally { setReviewBusy(false); }
+  };
+
+  const dismissReview = () => {
+    setShowReview(false);
+    setReviewDismissed(true);
+    setReviewError('');
   };
 
   const shareRide = async () => {
@@ -170,7 +190,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
       </div>
     </div>
 
-    {showReview && <ReviewModal driver={snapshot?.driver || null} onSubmit={(stars, comment) => void submitReview(stars, comment)} onClose={() => setShowReview(false)}/>}
+    {showReview && <ReviewModal driver={snapshot?.driver || null} onSubmit={(stars, comment) => void submitReview(stars, comment)} onClose={dismissReview} error={reviewError} busy={reviewBusy}/>}
     {showCancel && <div className="dialog-backdrop fixed inset-0 z-50 flex items-center justify-center px-6"><div className="dialog-card w-full max-w-sm p-6 text-center"><div className="dialog-icon"><IconCheckCircle/></div><h3 className="mb-2 text-lg font-semibold">Cancel this ride?</h3><p className="mb-6 text-sm text-ink-soft">Your driver may already be on the way.</p><div className="flex gap-3"><button onClick={() => setShowCancel(false)} className="btn-secondary flex-1">Keep ride</button><button onClick={() => void cancelCurrentRide()} className="btn-primary flex-1 bg-danger border-danger">Cancel ride</button></div></div></div>}
   </div>;
 }
