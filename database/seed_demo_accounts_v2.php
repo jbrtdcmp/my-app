@@ -46,13 +46,15 @@ $dsn = sprintf(
 $accounts = [
     [
         'full_name' => 'Demo Passenger',
-        'phone' => '09000000001',
+        'phone' => '+639000000001',
+        'phone_variants' => ['+639000000001', '639000000001', '09000000001'],
         'role' => 'passenger',
         'driver_profile' => null,
     ],
     [
         'full_name' => 'Demo Driver',
-        'phone' => '09000000002',
+        'phone' => '+639000000002',
+        'phone_variants' => ['+639000000002', '639000000002', '09000000002'],
         'role' => 'driver',
         'driver_profile' => [
             'plate_number' => 'DEMO-001',
@@ -64,7 +66,8 @@ $accounts = [
     ],
     [
         'full_name' => 'Demo Admin',
-        'phone' => '09000000003',
+        'phone' => '+639000000003',
+        'phone_variants' => ['+639000000003', '639000000003', '09000000003'],
         'role' => 'admin',
         'driver_profile' => null,
     ],
@@ -82,7 +85,8 @@ try {
         ]
     );
 
-    $findUser = $pdo->prepare('SELECT id FROM users WHERE phone = ? LIMIT 1');
+    $findUser = $pdo->prepare('SELECT id FROM users WHERE phone IN (?, ?, ?) LIMIT 1');
+    $findPlate = $pdo->prepare('SELECT user_id FROM driver_profiles WHERE plate_number = ? LIMIT 1');
     $insertUser = $pdo->prepare(
         'INSERT INTO users (full_name, phone, email, password_hash, role, is_active)
          VALUES (?, ?, NULL, ?, ?, 1)'
@@ -99,10 +103,21 @@ try {
     $pdo->beginTransaction();
     try {
         foreach ($accounts as $account) {
-            $findUser->execute([$account['phone']]);
+            $findUser->execute($account['phone_variants']);
             if ($findUser->fetchColumn() !== false) {
                 $skipped++;
                 continue;
+            }
+
+            if ($account['driver_profile'] !== null) {
+                $profile = $account['driver_profile'];
+                $findPlate->execute([$profile['plate_number']]);
+                $plateOwner = $findPlate->fetchColumn();
+                if ($plateOwner !== false) {
+                    throw new RuntimeException(
+                        "Driver plate {$profile['plate_number']} is already used by user ID {$plateOwner}."
+                    );
+                }
             }
 
             $insertUser->execute([
