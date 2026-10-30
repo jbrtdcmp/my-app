@@ -37,7 +37,7 @@ function BarChart({ data }: { data: { name: string; rides: number; drivers: numb
               className="h-full rounded-full bg-orange transition-all duration-700"
               style={{ width: `${(d.rides / max) * 100}%`, minWidth: 24 }}
             />
-            <span className="text-xs text-orange font-semibold ml-1">{d.drivers}D</span>
+            <span className="text-xs text-orange-dark font-semibold ml-1">{d.drivers}D</span>
           </div>
         </div>
       ))}
@@ -71,9 +71,9 @@ function FareZoneEditor() {
               type="number"
               value={f.base}
               onChange={e => setFares(prev => prev.map((x, j) => j === i ? { ...x, base: +e.target.value } : x))}
-              className="w-16 px-2 py-1.5 rounded-lg border-2 border-border text-sm text-ink font-semibold text-center focus:outline-none focus:border-orange"
+              className="w-16 px-2 py-1.5 rounded-lg border-2 border-border text-sm text-ink font-semibold text-center focus:border-orange"
             />
-            <button className="text-xs text-orange font-semibold border border-orange rounded-lg px-2.5 py-1.5 hover:bg-orange-light transition-colors">
+            <button className="text-xs text-orange-dark font-semibold border border-orange rounded-lg px-2.5 py-1.5 hover:bg-orange-light transition-colors">
               Save
             </button>
           </div>
@@ -95,7 +95,7 @@ function AlertComposer() {
       <div>
         <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Target Area</label>
         <select value={muni} onChange={e => setMuni(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:outline-none focus:border-orange">
+          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange">
           <option value="all">All Municipalities</option>
           <option>Carrascal</option><option>Cantilan</option>
           <option>Madrid</option><option>Carmen</option><option>Lanuza</option>
@@ -107,7 +107,7 @@ function AlertComposer() {
           {ALERT_TYPE_CHOICES.map(({ id, Icon }) => (
             <button key={id} onClick={() => setType(id)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all capitalize ${
-                type === id ? 'border-orange bg-orange text-white' : 'border-border text-ink-soft'
+                type === id ? 'border-orange-dark bg-orange-dark text-white' : 'border-border text-ink-soft'
               }`}>
               <Icon size={16}/>{id}
             </button>
@@ -117,12 +117,12 @@ function AlertComposer() {
       <div>
         <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Title</label>
         <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Alert title..."
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:outline-none focus:border-orange"/>
+          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange"/>
       </div>
       <div>
         <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Message</label>
         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Alert message..."
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:outline-none focus:border-orange resize-none"/>
+          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange resize-none"/>
       </div>
       <button
         className="btn-primary btn-large w-full"
@@ -205,17 +205,17 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
     <div className="flex-1 overflow-y-auto bg-warm">
       {/* Header */}
       <div className="admin-dashboard-header bg-orange wave-bg"
-        style={{ background: 'linear-gradient(135deg, #26211E 0%, #D86F2F 100%)' }}>
+        style={{ background: 'linear-gradient(135deg, #26211E 0%, #A94C1B 100%)' }}>
         <div className="admin-dashboard-header__content">
           <div className="admin-dashboard-header__copy">
             <h1 className="text-xl font-semibold text-white">Admin Dashboard</h1>
-            <p className="text-white/60 text-sm mt-0.5">CarCanMadCarLan · PASAKJA</p>
+            <p className="text-white/80 text-sm mt-0.5">CarCanMadCarLan · PASAKJA</p>
           </div>
           <div className="admin-dashboard-header__actions">
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 text-white text-xs font-medium hover:bg-white/25 transition-colors">
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-ink text-xs font-medium hover:bg-warm transition-colors">
               <IconFile size={16}/>PDF
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 text-white text-xs font-medium hover:bg-white/25 transition-colors">
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-ink text-xs font-medium hover:bg-warm transition-colors">
               <IconChart size={16}/>Excel
             </button>
           </div>
@@ -229,7 +229,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             key={t.id}
             onClick={() => { setTab(t.id); onTabChange(t.id); }}
             className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all ${
-              tab === t.id ? 'border-orange text-orange' : 'border-transparent text-ink-soft hover:text-ink'
+              tab === t.id ? 'border-orange text-orange-dark' : 'border-transparent text-ink-soft hover:text-ink'
             }`}
           >
             <t.Icon size={16}/>
@@ -245,8 +245,8 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             {summaryError && <ErrorState message={summaryError}/>}
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <SharedStatCard icon={<IconDriver className="text-orange"/>} label="Total Drivers" value={summary?.total_drivers ?? '—'}/>
-              <SharedStatCard icon={<IconProfile className="text-orange"/>} label="Total Passengers" value={summary?.total_passengers ?? '—'}/>
+              <SharedStatCard icon={<IconDriver className="text-orange-dark"/>} label="Total Drivers" value={summary?.total_drivers ?? '—'}/>
+              <SharedStatCard icon={<IconProfile className="text-orange-dark"/>} label="Total Passengers" value={summary?.total_passengers ?? '—'}/>
               <SharedStatCard icon={<IconBookings className="text-warning"/>} label="Active Bookings" value={summary?.active_rides ?? '—'} color="text-warning"/>
               <SharedStatCard icon={<IconCheckCircle className="text-success"/>} label="Completed Today" value={summary?.completed_today ?? '—'} color="text-success"/>
             </div>
@@ -289,7 +289,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
                       <div className="flex-1 h-2.5 bg-warm rounded-full overflow-hidden">
                         <div className="h-full rounded-full bg-orange" style={{ width: `${Math.min(100, m.drivers / Math.max(1, summary?.total_drivers ?? 1) * 100)}%` }}/>
                       </div>
-                      <span className="text-xs font-semibold text-orange w-8 text-right">{m.drivers}</span>
+                      <span className="text-xs font-semibold text-orange-dark w-8 text-right">{m.drivers}</span>
                     </div>
                   ))}
                 </div>
@@ -312,7 +312,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
           <div className="bg-surface rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-base text-ink">Driver Management</h3>
-              <input placeholder="Search drivers..." className="px-3 py-1.5 rounded-xl border border-border text-sm focus:outline-none focus:border-orange w-40"/>
+              <input placeholder="Search drivers..." className="px-3 py-1.5 rounded-xl border border-border text-sm focus:border-orange w-40"/>
             </div>
             {driversError && <ErrorState className="mx-5 my-3" message={driversError}/>}
             <DataTable columns={driverColumns} rows={drivers} getRowKey={driver => driver.id}/>
@@ -321,7 +321,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
               <span>{drivers.length} registered drivers</span>
               <div className="flex gap-2">
                 <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">‹ Prev</button>
-                <button className="px-3 py-1.5 rounded-lg border border-orange bg-orange-light text-orange font-medium">1</button>
+                <button className="px-3 py-1.5 rounded-lg border border-orange bg-orange-light text-orange-dark font-medium">1</button>
                 <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">2</button>
                 <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">Next ›</button>
               </div>
@@ -350,7 +350,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             {sosEvents.length === 0 && !sosError && <p className="rounded-xl border border-border bg-surface p-4 text-sm text-ink-soft">No SOS alerts have been sent.</p>}
             {sosEvents.map(event => <article key={event.id} className="rounded-xl border border-border bg-surface p-4">
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{event.full_name || 'PASAKJA user'} <span className="font-normal capitalize text-ink-soft">· {event.role}</span></p><p className="mt-1 text-xs text-ink-soft">{event.municipality || 'Location not provided'} · {new Date(event.created_at).toLocaleString()}</p></div><StatusBadge status={event.status === 'active' ? 'sos-active' : event.status} label={event.status}/></div>
-              {(event.latitude !== null && event.longitude !== null) && <a className="mt-2 inline-block text-sm text-orange underline" href={`https://www.openstreetmap.org/?mlat=${event.latitude}&mlon=${event.longitude}#map=16/${event.latitude}/${event.longitude}`} target="_blank" rel="noreferrer">Open reported location</a>}
+              {(event.latitude !== null && event.longitude !== null) && <a className="mt-2 inline-block text-sm text-orange-dark underline" href={`https://www.openstreetmap.org/?mlat=${event.latitude}&mlon=${event.longitude}#map=16/${event.latitude}/${event.longitude}`} target="_blank" rel="noreferrer">Open reported location</a>}
               {(event.driver_name || event.plate_number) && <p className="mt-2 text-sm text-ink-soft">Driver: {event.driver_name || '—'}{event.plate_number ? ` · ${event.plate_number}` : ''}</p>}
               {event.status === 'active' && <button type="button" disabled={resolvingSos === event.id} onClick={() => void resolveAlert(event.id)} className="btn-secondary mt-3 px-4 py-2">{resolvingSos === event.id ? 'Updating…' : 'Mark resolved'}</button>}
             </article>)}

@@ -18,12 +18,12 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
       {/* Passenger header */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wider text-orange">New request</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-orange-dark">New request</p>
           <p className="font-semibold text-sm text-ink">{ride.municipality} ride request</p>
           <p className="text-xs text-ink-soft">{ride.passenger_name || 'Passenger'}</p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-bold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</p>
+          <p className="text-xl font-bold text-orange-dark">{fare !== null ? `₱${fare}` : 'Fare pending'}</p>
           {distance !== null && <p className="text-xs text-ink-soft">{distance} km</p>}
         </div>
       </div>
@@ -49,7 +49,7 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
 
       {/* Meta */}
       <div className="flex items-center gap-3 text-xs text-ink-soft mb-3">
-        <span className="bg-orange-light text-orange px-2 py-0.5 rounded-full font-medium capitalize">{ride.ride_type.replace('_', ' ')}</span>
+        <span className="bg-orange-light text-orange-dark px-2 py-0.5 rounded-full font-medium capitalize">{ride.ride_type.replace('_', ' ')}</span>
         <span>·</span>
         <span>Cash</span>
         <span>·</span>
@@ -150,7 +150,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
       {/* TODA badge */}
       <div className="mx-4 mb-4 flex items-center gap-2 bg-orange-light rounded-xl px-4 py-2.5 border border-orange/20">
         <IconTODA className="w-5 h-5"/>
-        <span className="text-sm font-semibold text-orange">{profile?.verification_status === 'verified' ? 'TODA Verified' : 'Verification pending'}</span>
+        <span className="text-sm font-semibold text-orange-dark">{profile?.verification_status === 'verified' ? 'TODA Verified' : 'Verification pending'}</span>
         <span className="text-ink-soft text-xs mx-1">·</span>
         <span className="text-xs text-ink-soft">{profile ? `${profile.toda_name} · ${profile.plate_number}` : 'Driver details unavailable'}</span>
       </div>
@@ -160,7 +160,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
       {/* Active ride banner */}
       {activeRide && onResumeRide && (
         <div className="mx-4 mb-4 bg-orange-light rounded-2xl px-4 py-3 border border-orange/30">
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange mb-1">Active ride</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-orange-dark mb-1">Active ride</p>
           <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
           <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>
           <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary w-full mt-3">Resume ride</button>
@@ -172,7 +172,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
         <SharedStatCard icon={<IconWallet size={20}/>} label="Today's Earnings" value={profile?.earnings_today ?? 0} unit="₱"/>
         <SharedStatCard icon={<IconDriver size={20}/>} label="Rides Today" value={profile?.rides_today ?? 0}/>
         <SharedStatCard icon={<IconStar className="text-warning" filled={false}/>} label="Rating" value={Number(profile?.rating ?? 0).toFixed(1)}/>
-        <SharedStatCard icon={<IconChart className="text-orange"/>} label="Total Rides" value={profile?.total_rides ?? 0}/>
+        <SharedStatCard icon={<IconChart className="text-orange-dark"/>} label="Total Rides" value={profile?.total_rides ?? 0}/>
       </div>
 
       {/* Map */}
@@ -185,7 +185,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-base text-ink">Ride Requests</h2>
           {requests.length > 0 && (
-            <span className="bg-orange text-white text-xs font-bold px-2 py-0.5 rounded-full">{requests.length}</span>
+            <span className="bg-orange-dark text-white text-xs font-bold px-2 py-0.5 rounded-full">{requests.length}</span>
           )}
         </div>
 
@@ -240,7 +240,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
                     <p className="text-sm text-ink font-medium truncate">{ride.pickup} → {ride.destination}</p>
                     <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
-                  <span className="text-sm font-bold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
+                  <span className="text-sm font-bold text-orange-dark">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
                 </div>
               );
             })}

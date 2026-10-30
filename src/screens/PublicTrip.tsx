@@ -30,7 +30,7 @@ export default function PublicTrip({ token }: { token: string }) {
   return <main className="min-h-screen bg-warm p-4 md:flex md:items-center md:justify-center">
     <section className="public-trip-shell mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-surface">
       <header className="border-b border-border px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-orange">PASAKJA · Shared trip</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-orange-dark">PASAKJA · Shared trip</p>
         <h1 className="mt-1 text-xl font-semibold text-ink">{error ? 'Trip link unavailable' : trip?.status === 'completed' ? 'Trip completed' : 'Live trip'}</h1>
       </header>
       {error ? <p role="alert" className="m-6 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</p> : <>

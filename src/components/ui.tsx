@@ -140,7 +140,7 @@ export function ConfirmDialog({ title, children, onCancel, onConfirm, confirmLab
 }
 
 export function TopBar({ title, leading, trailing }: { title: string; leading?: ReactNode; trailing?: ReactNode }) {
-  return <header className="app-navigation-bar flex items-center justify-between border-b border-border bg-surface"><span>{leading}</span><h1 className="app-navigation-bar__title">{title}</h1><span>{trailing}</span></header>;
+  return <header className="app-navigation-bar border-b border-border bg-surface"><div className="app-navigation-bar__side">{leading}</div><h1 className="app-navigation-bar__title">{title}</h1><div className="app-navigation-bar__side app-navigation-bar__side--trailing">{trailing}</div></header>;
 }
 
 export function BottomTabBar({ tabs, active, onSelect }: { tabs: { id: string; label: string; icon?: ReactNode; badge?: ReactNode }[]; active: string; onSelect: (id: string) => void }) {

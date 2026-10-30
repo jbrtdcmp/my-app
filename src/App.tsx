@@ -76,12 +76,12 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
               onClick={() => onNavigate(id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 relative ${
                 isActive
-                  ? 'bg-orange text-white shadow-btn'
+                  ? 'bg-orange-dark text-white shadow-btn'
                   : 'text-ink-soft hover:bg-warm hover:text-ink'
               }`}
             >
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r bg-orange-dark"/>
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r bg-white/80"/>
               )}
               {Icon && <Icon size={20}/>}
               <span>{label}</span>
@@ -149,7 +149,7 @@ function RoleTopBar({ title, onBack, onAlerts, onOpenSos, onProfile, onLogout, o
   return (
     <div className="md:hidden relative"><TopBar title={title}
       leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
-      trailing={<div className={`app-navigation-bar__actions${role === 'admin' ? ' app-navigation-bar__actions--admin' : ''}`}>
+      trailing={<div className="app-navigation-bar__actions">
         {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{sosCount}</span></button>}
         <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
         <button type="button" onClick={onProfile} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>

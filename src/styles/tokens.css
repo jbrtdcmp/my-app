@@ -46,7 +46,7 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
   --space-xs: 4px;
@@ -94,6 +94,14 @@
   --radius-control: 12px;
   --radius-card: 14px;
   --button-hit-area: 44px;
+  --z-base: 0;
+  --z-sticky: 20;
+  --z-drawer: 30;
+  --z-dialog: 50;
+  --z-menu: 100;
+  --z-map-hint: 500;
+  --z-map-control: 1000;
+  --z-sos: 1000;
 
   /*
    * Ultra-compact preset (optional): button/input 36px, body 13px, small

@@ -66,10 +66,10 @@ export default function FindingDriver({ onFound, onCancel, rideId }: FindingDriv
         <div className="relative h-36 w-36 flex-none"><div className="absolute inset-0 rounded-full bg-orange/10 animate-pulse-ring"/><div className="absolute inset-5 rounded-full bg-orange/15 animate-pulse-ring"/></div>
         <div><h2 className="mb-2 text-2xl font-semibold text-ink">Finding a tricycle{'.'.repeat(dots)}</h2><p className="text-sm text-ink-soft">Looking for available approved drivers</p></div>
         {ride && <div className="w-full max-w-xs space-y-3 rounded-2xl border border-border bg-surface p-4 text-left text-sm">
-          <div className="flex items-center gap-2 text-orange"><IconLocation size={16}/><span className="font-medium">{ride.pickup_label}</span></div>
+          <div className="flex items-center gap-2 text-orange-dark"><IconLocation size={16}/><span className="font-medium">{ride.pickup_label}</span></div>
           <div className="flex items-center gap-2 pl-6 text-xs text-ink-soft"><IconArrowDown size={16}/><span>{distance !== null ? `${distance} km road distance` : 'Route distance will appear when location pins are available'}</span></div>
           <div className="flex items-center gap-2"><IconBuilding size={16} className="text-ink-soft"/><span className="font-medium">{ride.destination_label}</span></div>
-          {fare !== null && <p className="border-t border-border pt-2 text-sm font-semibold text-orange">Estimated fare: ₱{fare}</p>}
+          {fare !== null && <p className="border-t border-border pt-2 text-sm font-semibold text-orange-dark">Estimated fare: ₱{fare}</p>}
         </div>}
         {error && <p role="status" className="max-w-xs text-sm text-ink-soft">{error}</p>}
         {cancelError && <p role="alert" className="max-w-xs text-sm text-danger">{cancelError}</p>}

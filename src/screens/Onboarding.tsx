@@ -9,21 +9,21 @@ const SLIDES = [
     id: 1,
     title: 'Book a Tricycle in Seconds',
     subtitle: 'Where to?',
-    description: 'Find a TODA-verified tricycle near you in Carrascal, Cantilan, Madrid, Carmen, or Lanuza — anytime, anywhere.',
+    description: 'Find a TODA-verified tricycle near you in Carrascal, Cantilan, Madrid, Carmen, or Lanuza.',
     illustrationBg: 'from-orange to-sunset',
   },
   {
     id: 2,
     title: 'Know Your Fare',
     subtitle: 'Know Your Fare First',
-    description: 'See the exact fare before you ride. Fixed zone rates, transparent breakdown, and community discounts for students, seniors, and PWDs.',
+    description: 'See the fare estimate before you book, with a clear base fare and distance breakdown.',
     illustrationBg: 'from-orange-dark to-orange',
   },
   {
     id: 3,
     title: 'Safe and Reliable',
     subtitle: 'Your Own Local TODA',
-    description: 'Every driver is TODA-verified with plate and body number visible. Share your trip link and use emergency contacts at any time.',
+    description: 'Every driver is TODA-verified with plate and body number visible. Share your trip link with someone you trust.',
     illustrationBg: 'from-ink to-ink-soft',
   },
 ];
@@ -100,18 +100,16 @@ function CoastalIllustration({ slide }: { slide: number }) {
       {slide === 2 && (
         <g transform="translate(120, 100)">
           <rect x="0" y="0" width="150" height="90" rx="12" fill="white" opacity="0.95"/>
-          <rect x="0" y="0" width="150" height="30" rx="12" fill="#D86F2F"/>
-          <rect x="0" y="22" width="150" height="8" rx="0" fill="#D86F2F"/>
-          <text x="12" y="20" fontFamily="Poppins" fontSize="11" fontWeight="600" fill="white">Fare Breakdown</text>
-          <text x="12" y="48" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Base Fare (Zone A)</text>
-          <text x="120" y="48" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱20</text>
-          <text x="12" y="62" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Distance (1.2 km)</text>
-          <text x="120" y="62" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱8</text>
-          <text x="12" y="76" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#D86F2F">Senior Discount</text>
-          <text x="114" y="76" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#568570">-₱5.60</text>
-          <line x1="12" y1="80" x2="138" y2="80" stroke="#DED5CD" strokeWidth="1"/>
-          <text x="12" y="89" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#26211E">Total</text>
-          <text x="112" y="89" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#D86F2F">₱22.40</text>
+          <rect x="0" y="0" width="150" height="30" rx="12" fill="#A94C1B"/>
+          <rect x="0" y="22" width="150" height="8" rx="0" fill="#A94C1B"/>
+          <text x="12" y="20" fontFamily="Poppins" fontSize="11" fontWeight="600" fill="white">Sample Fare</text>
+          <text x="12" y="48" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Base fare</text>
+          <text x="123" y="48" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱30</text>
+          <text x="12" y="64" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Distance (5 km)</text>
+          <text x="123" y="64" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱25</text>
+          <line x1="12" y1="76" x2="138" y2="76" stroke="#DED5CD" strokeWidth="1"/>
+          <text x="12" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#26211E">Total</text>
+          <text x="116" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#A94C1B">₱55</text>
         </g>
       )}
 
@@ -154,7 +152,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           Skip
         </button>
         {/* Logo */}
-        <div className="absolute top-4 left-4 flex items-center gap-2">
+        <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full border border-border/50 bg-white/85 px-3 py-1.5 backdrop-blur-sm">
           <span className="font-bold text-ink text-base tracking-tight">PASAKJA</span>
         </div>
       </div>
@@ -175,7 +173,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         </div>
 
         <div className="text-center space-y-2">
-          <p className="text-sm font-medium text-orange tracking-wide uppercase">{slide.subtitle}</p>
+          <p className="text-sm font-medium text-orange-dark tracking-wide uppercase">{slide.subtitle}</p>
           <h2 className="text-2xl font-semibold text-ink leading-snug">{slide.title}</h2>
           <p className="text-ink-soft text-sm leading-relaxed">{slide.description}</p>
         </div>

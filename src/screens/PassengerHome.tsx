@@ -51,14 +51,14 @@ function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: 
               }`}
             >
               {m.isInterTown
-                ? <span className="w-5 h-5 rounded-full bg-sunset/20 flex items-center justify-center"><IconMap size={16} className="text-orange"/></span>
+                ? <span className="w-5 h-5 rounded-full bg-sunset/20 flex items-center justify-center"><IconMap size={16} className="text-orange-dark"/></span>
                 : <span className="w-5 h-5 rounded-full bg-orange/20 flex-shrink-0"/>}
               <div>
                 <p className="text-sm font-medium text-ink">{m.label}</p>
-                {m.isInterTown && <p className="text-xs text-orange">e.g. Cantilan → Carmen</p>}
+                {m.isInterTown && <p className="text-xs text-orange-dark">e.g. Cantilan → Carmen</p>}
               </div>
               {m.id === active && (
-                <IconCheck size={16} className="ml-auto text-orange"/>
+                <IconCheck size={16} className="ml-auto text-orange-dark"/>
               )}
             </button>
           ))}
@@ -72,10 +72,10 @@ function FarePreview({ estimate, loading, error, hasPins }: { estimate: FareEsti
   return (
     <div className="bg-orange-light rounded-2xl p-4 mt-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-orange uppercase tracking-wide">Fare Breakdown</span>
+        <span className="text-xs font-semibold text-orange-dark uppercase tracking-wide">Fare Breakdown</span>
         <span className="text-xs text-ink-soft">Cash only</span>
       </div>
-      <p className="mb-2 text-xs font-medium text-orange">Fixed fare. No surge pricing.</p>
+      <p className="mb-2 text-xs font-medium text-orange-dark">Fixed fare. No surge pricing.</p>
       {!hasPins ? (
         <p className="text-sm text-ink-soft">Set pickup and destination pins on the map to see the fixed fare.</p>
       ) : error ? (
@@ -109,7 +109,7 @@ function FarePreview({ estimate, loading, error, hasPins }: { estimate: FareEsti
           )}
           <div className="border-t border-orange/20 pt-2 flex justify-between font-semibold text-base">
             <span className="text-ink">Total</span>
-            <span className="text-orange">{peso(estimate.total)}</span>
+            <span className="text-orange-dark">{peso(estimate.total)}</span>
           </div>
         </div>
       )}
@@ -328,7 +328,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
         {/* Active ride banner */}
         {activeRide && onResumeRide && (
           <div data-testid="active-ride-banner" className="absolute top-16 left-3 right-3 z-20 bg-surface rounded-2xl border border-orange/30 shadow-card px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange mb-1">Active ride</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-orange-dark mb-1">Active ride</p>
             <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
             <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>
             <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary w-full mt-3">View active ride</button>
@@ -374,13 +374,13 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             <h2 className="font-semibold text-lg text-ink">Where to?</h2>
             <div className="bg-orange-light rounded-2xl p-3 space-y-2">
               <div className="flex items-center gap-3">
-                <IconLocation size={18} className="text-orange flex-shrink-0"/>
+                <IconLocation size={18} className="text-orange-dark flex-shrink-0"/>
                 <input
                   value={pickup}
                   onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
                   onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
                 />
               </div>
               <div className="h-px bg-orange/20"/>
@@ -391,11 +391,11 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
                   onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder="Destination: Where to go?"
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
                 />
               </div>
             </div>
-            {pinHint && <p role="status" className="text-xs font-medium text-orange">{pinHint}</p>}
+            {pinHint && <p role="status" className="text-xs font-medium text-orange-dark">{pinHint}</p>}
           </div>
         ) : (
           <div className="px-4 pb-6 space-y-4">
@@ -409,7 +409,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   <select
                     value={fromTown}
                     onChange={event => { setFromTown(event.target.value); setPickupPosition(null); setPickup(''); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
-                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:outline-none focus:border-orange"
+                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:border-orange"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -419,7 +419,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   <select
                     value={toTown}
                     onChange={event => { setToTown(event.target.value); setDestinationPosition(null); setDestination(''); setPendingPin(null); setPinHint(''); }}
-                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:outline-none focus:border-orange"
+                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:border-orange"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -430,13 +430,13 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             {/* Pickup & Destination */}
             <div className="bg-orange-light rounded-2xl p-3 space-y-2">
               <div className="flex items-center gap-3">
-                <IconLocation size={18} className="text-orange flex-shrink-0"/>
+                <IconLocation size={18} className="text-orange-dark flex-shrink-0"/>
                 <input
                   value={pickup}
                   onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
                   onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
                 />
               </div>
               <div className="h-px bg-orange/20"/>
@@ -447,7 +447,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                   onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
                   onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
                   placeholder="Destination: Where to go?"
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
                 />
               </div>
             </div>
@@ -461,7 +461,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                     key={lm.id}
                     data-testid={`pickup-landmark-${lm.id}`}
                     onClick={() => choosePickupLandmark(lm)}
-                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange transition-colors"
+                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange-dark transition-colors"
                   >
                     {lm.name.replace(pickupMuni.name + ' ', '')}
                   </button>
@@ -478,7 +478,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                     key={lm.id}
                     data-testid={`destination-landmark-${lm.id}`}
                     onClick={() => chooseDestinationLandmark(lm)}
-                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange transition-colors"
+                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange-dark transition-colors"
                   >
                     {lm.name.replace(destinationMuni.name + ' ', '')}
                   </button>
@@ -496,7 +496,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                     onClick={() => setRideType(rt.id)}
                     className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 ${
                       rideType === rt.id
-                        ? 'border-orange bg-orange text-white'
+                        ? 'border-orange-dark bg-orange-dark text-white'
                         : 'border-border bg-surface text-ink-soft hover:border-orange'
                     }`}
                   >
@@ -531,7 +531,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Add a note for driver (optional)..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-ink placeholder:text-ink-soft/60 focus:outline-none focus:border-orange text-sm"
+              className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-ink placeholder:text-ink-soft/60 focus:border-orange text-sm"
             />
 
             {/* Fare preview */}

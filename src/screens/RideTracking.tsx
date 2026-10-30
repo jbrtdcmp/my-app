@@ -164,10 +164,10 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
         <button type="button" disabled={busy} onClick={() => void shareRide()} className="safety-share-card flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"><span className="flex-1"><span className="block text-sm font-semibold">Safety first</span><span className="block text-xs opacity-80">{shareNotice || 'Share your ride details with someone you trust.'}</span></span></button>
 
         <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-base text-ink">{snapshot?.driver?.name || 'Waiting for driver details'}</span>{snapshot?.driver && <span className="rounded-full bg-orange-light px-1.5 py-0.5 text-xs font-semibold text-orange">TODA</span>}</div>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-base text-ink">{snapshot?.driver?.name || 'Waiting for driver details'}</span>{snapshot?.driver && <span className="rounded-full bg-orange-light px-1.5 py-0.5 text-xs font-semibold text-orange-dark">TODA</span>}</div>
             {snapshot?.driver && <div className="mt-0.5 text-xs text-ink-soft">{snapshot.driver.toda_name}</div>}
           </div>
-          {snapshot?.driver?.phone && <a href={`tel:${snapshot.driver.phone}`} aria-label="Call driver" className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-light text-orange"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4c0 1-1 2-2 2C10 20 4 14 3 5c0-1 1-2 2-2Z"/></svg></a>}
+          {snapshot?.driver?.phone && <a href={`tel:${snapshot.driver.phone}`} aria-label="Call driver" className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-light text-orange-dark"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 3h4l2 5-3 2a15 15 0 0 0 6 6l2-3 5 2v4c0 1-1 2-2 2C10 20 4 14 3 5c0-1 1-2 2-2Z"/></svg></a>}
         </div>
 
         {snapshot?.driver && <div className="grid grid-cols-3 gap-2 text-center text-xs"><div className="bg-orange-light rounded-xl p-2"><p className="text-ink-soft">Plate</p><p className="font-semibold text-ink">{snapshot.driver.plate_number}</p></div><div className="bg-orange-light rounded-xl p-2"><p className="text-ink-soft">Body No.</p><p className="font-semibold text-ink">{snapshot.driver.body_number}</p></div><div className="bg-orange-light rounded-xl p-2"><p className="text-ink-soft">TODA</p><p className="font-semibold text-ink">{snapshot.driver.toda_name}</p></div></div>}
@@ -177,7 +177,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
           <div className="ml-1 h-4 border-l border-border"/>
           <div className="flex items-start gap-2 text-sm"><span className="mt-1 h-2 w-2 flex-none rounded-full bg-ink"/><span className="text-ink-soft">To</span><span className="min-w-0 font-medium text-ink">{snapshot?.destination.label || 'Loading destination…'}</span></div>
           <div className="border-t border-border pt-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="text-ink-soft">{targetPosition ? `${statusLabel} · ${snapshot?.eta_minutes ?? '—'} min · ${snapshot?.distance_remaining_km ?? '—'} km` : statusLabel}</span>{snapshot?.route_fallback && <span className="text-warning">Approximate route</span>}</div>
-          <div className="border-t border-border pt-2 flex items-center justify-between text-sm"><span className="text-ink-soft">{serverStatus === 'completed' ? 'Final fare' : 'Fixed fare'}</span><span className="font-semibold text-orange">{fare !== null ? `₱${fare}` : 'Fare pending'}</span></div>
+          <div className="border-t border-border pt-2 flex items-center justify-between text-sm"><span className="text-ink-soft">{serverStatus === 'completed' ? 'Final fare' : 'Fixed fare'}</span><span className="font-semibold text-orange-dark">{fare !== null ? `₱${fare}` : 'Fare pending'}</span></div>
           <p className="text-xs text-ink-soft">Fixed fare. No surge pricing.</p>
         </div>
 

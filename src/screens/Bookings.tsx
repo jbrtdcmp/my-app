@@ -40,14 +40,14 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
       <div className="px-4 py-3 space-y-2">
         <div className="flex gap-2 overflow-x-auto pb-1">
           {STATUS_FILTERS.map(filter => (
-            <button key={filter} onClick={() => setStatusFilter(filter)} className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border-2 transition-all ${statusFilter === filter ? 'border-orange bg-orange text-white' : 'border-border bg-surface text-ink-soft'}`}>
+            <button key={filter} onClick={() => setStatusFilter(filter)} className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border-2 transition-all ${statusFilter === filter ? 'border-orange-dark bg-orange-dark text-white' : 'border-border bg-surface text-ink-soft'}`}>
               {filter}
             </button>
           ))}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {MUNI_FILTERS.map(filter => (
-            <button key={filter} onClick={() => setMuniFilter(filter)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${muniFilter === filter ? 'border-orange bg-orange-light text-orange' : 'border-border bg-surface text-ink-soft'}`}>
+            <button key={filter} onClick={() => setMuniFilter(filter)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${muniFilter === filter ? 'border-orange bg-orange-light text-orange-dark' : 'border-border bg-surface text-ink-soft'}`}>
               {filter}
             </button>
           ))}
@@ -96,10 +96,10 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 text-xs text-ink-soft">
-                    <span className="font-semibold text-orange text-base">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
+                    <span className="font-semibold text-orange-dark text-base">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
                     {distance !== null && <><span>·</span><span>{distance} km</span></>}
                   </div>
-                  <span className="text-xs text-orange font-medium">{selected ? 'Hide details' : 'Details'}</span>
+                  <span className="text-xs text-orange-dark font-medium">{selected ? 'Hide details' : 'Details'}</span>
                 </div>
               </button>
               {canTrack && (
