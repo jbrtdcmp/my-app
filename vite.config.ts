@@ -32,7 +32,8 @@ react(),
     },
     server: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
+      // 5173, not the template's 8443, so PASAKJA can run beside other Figma Make apps.
+      port: parseInt(process.env.PORT || '5173'),
       strictPort: true,
       watch: {
         ignored: [
@@ -42,7 +43,7 @@ react(),
     },
     preview: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
-      port: parseInt(process.env.PORT || '8443'),
+      port: parseInt(process.env.PORT || '5173'),
     },
   }
 })

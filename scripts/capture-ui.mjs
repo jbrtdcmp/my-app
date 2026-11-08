@@ -6,7 +6,7 @@ for (const envFile of ['.env.local', '.env']) {
   if (existsSync(envFile)) process.loadEnvFile(envFile);
 }
 
-const BASE_URL = process.env.PASAKJA_URL || 'http://localhost:8443';
+const BASE_URL = process.env.PASAKJA_URL || 'http://localhost:5173';
 const API_HEALTH = process.env.PASAKJA_API_HEALTH || 'http://localhost/PASAKJA-main/api/health';
 const API_BASE = (process.env.VITE_API_BASE_URL || process.env.PASAKJA_API_BASE || 'http://localhost/PASAKJA-main/api').replace(/\/$/, '');
 const OUT_DIR = 'docs/ride-flow-after';
