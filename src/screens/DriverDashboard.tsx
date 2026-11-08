@@ -20,7 +20,7 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
         <span className="avatar avatar--small">{(ride.passenger_name || 'P').slice(0, 1).toUpperCase()}</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-bold text-ink">{ride.passenger_name || 'Passenger'}</p>
-          <p className="text-xs text-ink-soft">New request · {ride.municipality}</p>
+          <p className="text-xs text-ink-soft">{ride.pickup_distance_km != null ? `${ride.pickup_distance_km} km from you` : 'New request'} · {ride.municipality}</p>
         </div>
         <div className="text-right">
           <p className="fare-amount">{fare !== null ? `₱${fare}` : 'Fare pending'}</p>
@@ -44,6 +44,7 @@ function RideRequestCard({ ride, onAccept, onDecline }: { ride: ApiRide; onAccep
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
+        {ride.dispatch_phase === 'offer' && <span className="meta-pill bg-orange-soft text-orange-dark">Offered to you first</span>}
         <span className="meta-pill capitalize">{ride.ride_type.replace('_', ' ')}</span>
         <span className="meta-pill">Cash payment</span>
       </div>
@@ -87,7 +88,10 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
     return () => { current = false; window.clearInterval(interval); };
   }, [isOnline]);
 
-  const requests = rides.filter(ride => ride.status === 'finding');
+  // Nearest pickup first; requests without a distance (open to everyone) go last.
+  const requests = rides
+    .filter(ride => ride.status === 'finding')
+    .sort((a, b) => (a.pickup_distance_km ?? Infinity) - (b.pickup_distance_km ?? Infinity));
   const completedRides = rides.filter(ride => ride.status === 'completed');
   const activeRide = rides.find(ride => ['accepted', 'arriving', 'in_progress'].includes(ride.status));
 

@@ -10,6 +10,8 @@ The API is served from `api/index.php` through Apache rewrite rules. Authenticat
 | GET | `/routes?from=lat,lng&to=lat,lng` | signed-in user | Return GeoJSON route, road distance and ETA. Uses OSRM and a cached Haversine fallback. |
 | GET | `/rides/{id}/tracking` | passenger, assigned driver, admin | Current ride, driver location, stale flag, route and ETA. |
 | POST | `/rides` | passenger | Request a ride. Coordinates are optional but validated and bounded to the configured service area. |
+| GET | `/rides` | signed-in user | A driver sees waiting requests only while dispatch offers them to that driver, with `pickup_distance_km` and `dispatch_phase` (`offer` or `open`). See [DISPATCH_ALGORITHM.md](DISPATCH_ALGORITHM.md). |
+| POST | `/rides/{id}/accept` | approved driver, admin | Accept a waiting ride. Returns 409 while the ride is still being offered to a closer driver. |
 
 Location updates are limited to one every two seconds, rejected outside service bounds, and the last 200 points per active ride are retained. A point older than 30 seconds is marked stale. Driver location is sent only while the foreground app is visible; browser background execution is not guaranteed.
 

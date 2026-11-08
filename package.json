@@ -10,7 +10,8 @@
     "format": "oxfmt",
     "check:ui": "node scripts/check-ui.mjs",
     "capture:ui": "node scripts/capture-ui.mjs",
-    "test:routes": "node --experimental-strip-types --test scripts/role-routes.test.mjs"
+    "test:routes": "node --experimental-strip-types --test scripts/role-routes.test.mjs",
+    "test:dispatch": "C:\\xampp\\php\\php.exe scripts/dispatch-test.php"
   },
   "dependencies": {
     "leaflet": "^1.9.4",

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/fare_service.php';
+require_once __DIR__ . '/dispatch_service.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -645,8 +646,9 @@ try {
             $approved = $pdo->prepare("SELECT 1 FROM driver_profiles WHERE user_id = ? AND verification_status = 'verified'");
             $approved->execute([$user['id']]);
             if (!$approved->fetchColumn()) throw new ApiError(403, 'Your driver account must be approved before receiving ride requests.');
-            $stmt = $pdo->prepare("SELECT r.*, p.full_name AS passenger_name FROM rides r JOIN users p ON p.id = r.passenger_id WHERE ((r.status = 'finding' AND NOT EXISTS (SELECT 1 FROM ride_driver_declines x WHERE x.ride_id = r.id AND x.driver_id = ?)) OR r.driver_id = ?) ORDER BY r.requested_at DESC LIMIT 100");
+            $stmt = $pdo->prepare("SELECT r.*, p.full_name AS passenger_name, TIMESTAMPDIFF(SECOND, r.requested_at, CURRENT_TIMESTAMP) AS waiting_seconds FROM rides r JOIN users p ON p.id = r.passenger_id WHERE ((r.status = 'finding' AND NOT EXISTS (SELECT 1 FROM ride_driver_declines x WHERE x.ride_id = r.id AND x.driver_id = ?)) OR r.driver_id = ?) ORDER BY r.requested_at DESC LIMIT 100");
             $stmt->execute([$user['id'], $user['id']]);
+            respond(['rides' => array_map('rideFarePayload', dispatchVisibleRides($pdo, $stmt->fetchAll(), $user['id']))]);
         } else {
             $stmt = $pdo->prepare('SELECT r.*, d.full_name AS driver_name FROM rides r LEFT JOIN users d ON d.id = r.driver_id WHERE r.passenger_id = ? ORDER BY r.requested_at DESC LIMIT 100');
             $stmt->execute([$user['id']]);
@@ -678,6 +680,7 @@ try {
             $approved = $pdo->prepare("SELECT 1 FROM driver_profiles WHERE user_id = ? AND verification_status = 'verified'");
             $approved->execute([$user['id']]);
             if (!$approved->fetchColumn()) throw new ApiError(403, 'Your driver account must be approved before accepting rides.');
+            if (!dispatchMayAccept($pdo, (int)$rideId, $user['id'])) throw new ApiError(409, 'This ride is being offered to a closer driver first. It opens to you if they do not accept.');
         }
         $pdo->beginTransaction();
         $stmt = $pdo->prepare("UPDATE rides SET driver_id = ?, status = 'accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'finding' AND driver_id IS NULL");

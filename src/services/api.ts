@@ -92,6 +92,10 @@ export interface ApiRide {
   driver_phone?: string | null;
   plate_number?: string | null;
   body_number?: string | null;
+  // Driver ride lists only: distance from this driver to the pickup, and whether
+  // the request is being offered driver by driver or is open to everyone.
+  pickup_distance_km?: number | null;
+  dispatch_phase?: 'offer' | 'open';
 }
 
 export interface TrackingPoint { lat: number; lng: number; heading: number | null; accuracy?: number | null; last_seen_at?: string; stale?: boolean }
