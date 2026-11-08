@@ -52,12 +52,6 @@
   --spacing-foundation-5: 20px;
   --spacing-foundation-6: 24px;
   --spacing-foundation-8: 32px;
-  --spacing-xs: var(--space-xs);
-  --spacing-sm: var(--space-sm);
-  --spacing-md: var(--space-md);
-  --spacing-lg: var(--space-lg);
-  --spacing-xl: var(--space-xl);
-  --spacing-2xl: var(--space-2xl);
 
   --shadow-card: 0 2px 8px rgba(38, 33, 30, 0.08);
   --shadow-float: 0 8px 32px rgba(38, 33, 30, 0.18);
@@ -198,11 +192,12 @@ input:disabled, select:disabled, textarea:disabled {
 .field-helper { margin-top: var(--space-form-message); color: #7a6f68; font-size: var(--type-caption); line-height: var(--line-caption); }
 
 /* Navigation bars from the Navigation foundation. */
-.app-navigation-bar { height: calc(var(--app-bar-height) + env(safe-area-inset-top, 0px)); min-height: calc(var(--app-bar-height) + env(safe-area-inset-top, 0px)); display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto); align-items: center; column-gap: var(--space-sm); padding-top: env(safe-area-inset-top, 0px); padding-inline: var(--space-app-bar); }
+.app-navigation-bar { height: calc(var(--app-bar-height) + env(safe-area-inset-top, 0px)); min-height: calc(var(--app-bar-height) + env(safe-area-inset-top, 0px)); display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center; column-gap: var(--space-sm); padding-top: env(safe-area-inset-top, 0px); padding-inline: var(--space-app-bar); }
 .app-navigation-bar__title { position: static; min-width: 0; transform: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; font-size: var(--type-title); line-height: var(--line-title); font-weight: 600; color: #26211e; }
 .app-navigation-bar__side { min-width: 0; display: flex; align-items: center; }
 .app-navigation-bar__side--trailing { justify-content: flex-end; }
 .app-navigation-bar__actions { display: flex; align-items: center; gap: var(--space-xs); }
+.app-navigation-bar__actions--admin { gap: 0; }
 .app-desktop-header__title { margin: 0; font-size: var(--type-title); line-height: var(--line-title); font-weight: 600; color: #26211e; }
 .admin-settings-anchor { position: relative; }
 .admin-settings-menu { position: absolute; top: calc(100% + var(--space-sm)); right: 0; z-index: var(--z-menu); width: min(288px, calc(100vw - 32px)); max-height: calc(100dvh - var(--app-bar-height) - 32px); overflow-y: auto; padding: var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-float); }
@@ -280,7 +275,9 @@ html, body, #root {
 }
 
 body { font-size: var(--type-body); font-weight: 400; line-height: var(--line-body); }
-h1, h2, h3, h4 { color: var(--color-ink); font-family: var(--font-sans); }
+@layer base {
+  h1, h2, h3, h4 { color: var(--color-ink); font-family: var(--font-sans); }
+}
 
 /* Semantic type styles for new and updated screens. */
 .type-display { font-size: var(--type-display); line-height: var(--line-display); font-weight: 600; }

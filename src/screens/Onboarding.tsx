@@ -96,20 +96,20 @@ function CoastalIllustration({ slide }: { slide: number }) {
         </g>
       )}
 
-      {/* Fare card illustration for slide 2 */}
+      {/* Sample 5 km fare for slide 2, using the seeded ₱30 base (includes 1 km) + ₱5/km */}
       {slide === 2 && (
         <g transform="translate(120, 100)">
           <rect x="0" y="0" width="150" height="90" rx="12" fill="white" opacity="0.95"/>
           <rect x="0" y="0" width="150" height="30" rx="12" fill="#A94C1B"/>
           <rect x="0" y="22" width="150" height="8" rx="0" fill="#A94C1B"/>
           <text x="12" y="20" fontFamily="Poppins" fontSize="11" fontWeight="600" fill="white">Sample Fare</text>
-          <text x="12" y="48" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Base fare</text>
+          <text x="12" y="48" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Base (includes 1 km)</text>
           <text x="123" y="48" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱30</text>
-          <text x="12" y="64" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Distance (5 km)</text>
-          <text x="123" y="64" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱25</text>
+          <text x="12" y="64" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Next 4 km</text>
+          <text x="123" y="64" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱20</text>
           <line x1="12" y1="76" x2="138" y2="76" stroke="#DED5CD" strokeWidth="1"/>
           <text x="12" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#26211E">Total</text>
-          <text x="116" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#A94C1B">₱55</text>
+          <text x="116" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#A94C1B">₱50</text>
         </g>
       )}
 
@@ -147,7 +147,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         {/* Skip button */}
         <button
           onClick={onComplete}
-          className="onboarding-skip absolute top-4 right-4 text-sm font-medium text-ink-soft bg-white/70 backdrop-blur-sm px-4 py-1.5 rounded-full border border-border/50"
+          className="onboarding-skip absolute top-4 right-4 text-sm font-medium text-ink bg-white/95 backdrop-blur-sm px-4 py-1.5 rounded-full border border-border/50"
         >
           Skip
         </button>

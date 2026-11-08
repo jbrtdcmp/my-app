@@ -198,7 +198,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
     { key: 'toda', label: 'TODA', render: (driver: typeof drivers[number]) => driver.toda_name },
     { key: 'location', label: 'Last location', render: (driver: typeof drivers[number]) => driver.last_seen_at ? new Date(driver.last_seen_at).toLocaleString() : 'Never shared location' },
     { key: 'status', label: 'Status', render: (driver: typeof drivers[number]) => <StatusBadge status={driver.verification_status}/> },
-    { key: 'actions', label: 'Actions', render: (driver: typeof drivers[number]) => <div className="flex gap-2">{driver.verification_status !== 'verified' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'verified')} className="text-xs font-semibold text-success">Approve</button>}{driver.verification_status !== 'rejected' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'rejected')} className="text-xs font-semibold text-danger">Reject</button>}</div> },
+    { key: 'actions', label: 'Actions', render: (driver: typeof drivers[number]) => <div className="flex flex-wrap gap-2">{driver.verification_status !== 'verified' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'verified')} className="text-xs font-semibold text-success">Approve</button>}{driver.verification_status !== 'rejected' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'rejected')} className="text-xs font-semibold text-danger">Reject</button>}</div> },
   ];
 
   return (

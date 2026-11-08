@@ -149,7 +149,7 @@ function RoleTopBar({ title, onBack, onAlerts, onOpenSos, onProfile, onLogout, o
   return (
     <div className="md:hidden relative"><TopBar title={title}
       leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
-      trailing={<div className="app-navigation-bar__actions">
+      trailing={<div className={`app-navigation-bar__actions${role === 'admin' ? ' app-navigation-bar__actions--admin' : ''}`}>
         {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{sosCount}</span></button>}
         <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
         <button type="button" onClick={onProfile} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
