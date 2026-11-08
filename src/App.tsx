@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { IconAlerts, IconArrowLeft, IconBookings, IconDriver, IconHome, IconLogout, IconMap, IconMenu, IconProfile, IconSettings } from './components/Icons';
+import { useEffect, useState } from 'react';
+import { IconAdmin, IconAlerts, IconArrowLeft, IconBookings, IconDriver, IconHome, IconLogout, IconProfile, IconShield } from './components/Icons';
 import Onboarding from './screens/Onboarding';
 import Auth from './screens/Auth';
 import PassengerHome from './screens/PassengerHome';
@@ -11,7 +11,6 @@ import Profile from './screens/Profile';
 import DriverDashboard from './screens/DriverDashboard';
 import AdminDashboard from './screens/AdminDashboard';
 import type { AdminTab } from './screens/AdminDashboard';
-import Map from './components/Map';
 import PublicTrip from './screens/PublicTrip';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
 import { acceptRide, authenticate, createRide, getAdminSos, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
@@ -23,15 +22,15 @@ type AppState = 'onboarding' | 'auth' | 'app';
 type RideState = 'idle' | 'finding' | 'tracking';
 type UserRole = AppRole;
 const MENU_ICONS = {
+  admin: IconAdmin,
   alerts: IconAlerts,
   bookings: IconBookings,
   driver: IconDriver,
   home: IconHome,
-  map: IconMap,
   profile: IconProfile,
 };
 const SCREEN_TITLES: Record<Screen, string> = {
-  home: 'Home', map: 'Map', bookings: 'Rides', alerts: 'Alerts', profile: 'Profile', driver: 'Requests', admin: 'Overview', drivers: 'Drivers',
+  home: 'Home', bookings: 'Rides', alerts: 'Alerts', profile: 'Profile', driver: 'Requests', admin: 'Dashboard', drivers: 'Dashboard',
 };
 const rideHeaderTitle = (rideState: RideState, screen: Screen) =>
   rideState === 'idle' ? SCREEN_TITLES[screen] : rideState === 'finding' ? 'Finding a ride' : 'Ride details';
@@ -59,7 +58,7 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
       </div>
 
       {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} className="app-sidebar__sos">
-        <span className="flex items-center gap-2"><IconAlerts size={16}/> Active SOS</span>
+        <span className="flex items-center gap-2"><IconShield size={16}/> Active SOS</span>
         <span className="rounded-full bg-danger px-2 text-xs font-bold text-white">{sosCount}</span>
       </button>}
 
@@ -108,52 +107,14 @@ function RoleBottomTabBar({ activeScreen, onNavigate, role }: {
   })}/>;
 }
 
-function RoleTopBar({ title, onBack, onAlerts, onOpenSos, onProfile, onLogout, onNavigate, activeScreen, role, sosCount }: { title: string; onBack?: () => void; onAlerts: () => void; onOpenSos: () => void; onProfile: () => void; onLogout: () => void; onNavigate: (screen: Screen) => void; activeScreen: Screen; role: UserRole; sosCount: number }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  const menu = useRoleRoutes(role).menu;
-  useEffect(() => {
-    if (!settingsOpen) return;
-    const closeOnPointerDown = (event: PointerEvent) => {
-      if (!settingsRef.current?.contains(event.target as Node)) setSettingsOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSettingsOpen(false);
-    };
-    document.addEventListener('pointerdown', closeOnPointerDown);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnPointerDown);
-      document.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [settingsOpen]);
-
+// Phones navigate with the bottom tabs, so the top bar only carries the title,
+// Back during a ride, and the admin's active-SOS badge.
+function RoleTopBar({ title, onBack, onOpenSos, role, sosCount }: { title: string; onBack?: () => void; onOpenSos: () => void; role: UserRole; sosCount: number }) {
   return (
-    <div className="md:hidden relative"><TopBar title={title}
-      leading={role === 'admin' ? <button type="button" onClick={() => setMenuOpen(open => !open)} aria-label="Open navigation menu" aria-expanded={menuOpen} className="app-navigation-bar__action"><IconMenu size={20}/></button> : onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
-      trailing={<div className={`app-navigation-bar__actions${role === 'admin' ? ' app-navigation-bar__actions--admin' : ''}`}>
-        {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{sosCount}</span></button>}
-        <button type="button" onClick={onAlerts} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
-        <button type="button" onClick={onProfile} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
-        {role === 'admin' && <div className="admin-settings-anchor" ref={settingsRef}>
-          <button type="button" onClick={() => setSettingsOpen(open => !open)} aria-label="Admin settings" aria-controls="admin-settings-menu" aria-expanded={settingsOpen} className="app-navigation-bar__action"><IconSettings size={20}/></button>
-          {settingsOpen && <div className="admin-settings-menu" id="admin-settings-menu" aria-label="Admin settings">
-            <p className="admin-settings-menu__heading">Account</p>
-            <button type="button" className="admin-settings-menu__item" onClick={onProfile}><IconProfile size={18}/><span>Account profile</span></button>
-            <div className="admin-settings-menu__divider"/>
-            <button type="button" className="admin-settings-menu__item admin-settings-menu__logout" onClick={() => { setSettingsOpen(false); onLogout(); }}><IconLogout size={18}/><span>Log out</span></button>
-          </div>}
-        </div>}
-      </div>}/>        {menuOpen && <nav className="admin-mobile-drawer" aria-label="Admin navigation">
-          {menu.map(({ id, label, icon }) => {
-            const Icon = icon ? MENU_ICONS[icon] : undefined;
-            return <button key={id} type="button" className={activeScreen === id ? 'admin-mobile-drawer__item is-active' : 'admin-mobile-drawer__item'} onClick={() => { onNavigate(id); setMenuOpen(false); }}>
-              {Icon && <Icon size={20}/>}<span>{label}</span>
-            </button>;
-        })}
-        </nav>}
-      </div>
+    <div className="md:hidden"><TopBar title={title}
+      leading={onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
+      trailing={role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconShield size={20}/><span className="app-alert-count">{sosCount}</span></button>}/>
+    </div>
   );
 }
 
@@ -177,11 +138,6 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
 
   switch (screen) {
     case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
-    case 'map': return (
-      <div className="flex-1 p-4">
-        <Map activeMunicipality="carrascal" showRoute={false} className="h-full"/>
-      </div>
-    );
     case 'bookings': return <Bookings onResumeRide={onResumeRide} canResume={role !== 'admin'}/>;
     case 'alerts': return <Alerts role={role}/>;
     case 'profile': return <Profile role={role} user={user} onLogout={onLogout}/>;
@@ -417,30 +373,20 @@ export default function App() {
         <RoleTopBar
           title={rideHeaderTitle(rideState, activeScreen)}
           onBack={rideState !== 'idle' ? backToHome : undefined}
-          onAlerts={() => navigateScreen('alerts')}
           onOpenSos={openAdminSos}
-          onProfile={() => navigateScreen('profile')}
-          onLogout={handleLogout}
-          onNavigate={navigateScreen}
-          activeScreen={activeScreen}
           role={role}
           sosCount={activeSosCount}
         />
 
-        {/* Desktop location bar */}
+        {/* Desktop header: the sidebar holds navigation and the SOS link. */}
         <div className="app-desktop-header hidden md:flex">
           <div className="flex flex-col">
             <h1 className="app-desktop-header__title">{rideHeaderTitle(rideState, activeScreen)}</h1>
             <span className="app-desktop-header__subtitle">CarCanMadCarLan · Surigao del Sur</span>
           </div>
-          <div className="app-navigation-bar__actions">
-            {role === 'admin' && activeSosCount > 0 && <button type="button" onClick={openAdminSos} aria-label={`${activeSosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{activeSosCount}</span></button>}
-            <button type="button" onClick={() => navigateScreen('alerts')} aria-label="Alerts" className="app-navigation-bar__action"><IconAlerts size={20}/></button>
-            <button type="button" onClick={() => navigateScreen('profile')} aria-label="Profile" className="app-navigation-bar__action"><IconProfile size={20}/></button>
-          </div>
         </div>
       </>}
-      footer={rideState === 'idle' && role !== 'admin' ? (
+      footer={rideState === 'idle' ? (
         <div className="md:hidden">
           <RoleBottomTabBar activeScreen={activeScreen} onNavigate={navigateScreen} role={role}/>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconBookings, IconChevronDown, IconDriver } from '../components/Icons';
+import { IconBookings, IconChevronDown } from '../components/Icons';
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from '../components/ui';
 import { getRides, rideFare, type ApiRide } from '../services/api';
 
@@ -33,11 +33,8 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
 
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
-      <header className="page-header">
-        <h1>Your rides</h1>
-        <p>{filtered.length} {filtered.length === 1 ? 'ride' : 'rides'}</p>
-      </header>
-      <div className="px-4 pb-4 space-y-3">
+      <div className="px-4 pt-4 pb-4 space-y-3">
+        <p className="text-sm font-semibold text-ink-soft" aria-live="polite">{filtered.length} {filtered.length === 1 ? 'ride' : 'rides'}</p>
         <div className="chip-row" aria-label="Filter by status">
           {STATUS_FILTERS.map(filter => (
             <button key={filter} type="button" onClick={() => setStatusFilter(filter)} aria-pressed={statusFilter === filter} className="app-chip">
@@ -77,12 +74,9 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
             <article key={ride.id} className={`ride-history-card ${selected ? 'ride-history-card--selected' : ''}`}>
               <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="ride-history-card__toggle block w-full text-left">
                 <div className="mb-4 flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-orange-soft text-orange-action"><IconDriver size={20}/></span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-ink">{rideType} · {ride.municipality}</p>
-                      <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
-                    </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-ink">{rideType} · {ride.municipality}</p>
+                    <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
                   </div>
                   <StatusBadge status={ride.status}/>
                 </div>

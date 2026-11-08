@@ -40,14 +40,6 @@ export function IconCamera({ size = 24, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3.5"/></Icon>;
 }
 
-export function IconBuilding({ size = 20, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Icon>;
-}
-
-export function IconArrowDown({ size = 18, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M12 5v14"/><path d="m18 13-6 6-6-6"/></Icon>;
-}
-
 export function IconArrowLeft({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></Icon>;
 }
@@ -89,10 +81,6 @@ export function IconLocation({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="M20 10c0 5-5.5 10.2-7.4 11.8a1 1 0 0 1-1.2 0C9.5 20.2 4 15 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></Icon>;
 }
 
-export function IconDestination({ size = 20, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M5 22V4"/><path d="M5 15s1.2-1 4-1 4.6 2 7.2 2S20 15 20 15V4s-1.2 1-3.8 1S11.8 3 9 3 5 4 5 4"/></Icon>;
-}
-
 export function IconStar({ size = 16, className = '', filled = false }: IconProps & { filled?: boolean }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`app-icon ${className}`} aria-hidden="true" focusable="false"><path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.5 6.3-.9Z"/></svg>;
 }
@@ -103,10 +91,6 @@ export function IconSearch({ size = 20, className = '' }: IconProps) {
 
 export function IconChevronDown({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="m6 9 6 6 6-6"/></Icon>;
-}
-
-export function IconChevronRight({ size = 20, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="m9 18 6-6-6-6"/></Icon>;
 }
 
 export function IconX({ size = 20, className = '' }: IconProps) {
@@ -134,16 +118,8 @@ export function IconTODA({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="M3.9 8.6a4 4 0 0 1 4.7-4.7 4 4 0 0 1 6.8 0 4 4 0 0 1 4.7 4.7 4 4 0 0 1 0 6.8 4 4 0 0 1-4.7 4.7 4 4 0 0 1-6.8 0 4 4 0 0 1-4.7-4.7 4 4 0 0 1 0-6.8Z"/><path d="m9 12 2 2 4-4"/></Icon>;
 }
 
-export function IconMenu({ size = 24, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></Icon>;
-}
-
 export function IconLogout({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></Icon>;
-}
-
-export function IconSettings({ size = 20, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.8l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.8v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></Icon>;
 }
 
 export function IconWeather({ size = 20, className = '' }: IconProps) {

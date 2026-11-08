@@ -3,11 +3,10 @@ import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDr
 import { DataTable, ErrorState, StatCard as SharedStatCard, StatusBadge } from '../components/ui';
 import { getAdminDrivers, getAdminSos, getAdminSummary, getEmergencyContacts, resolveSos, updateEmergencyContact, verifyDriver, type AdminSummary, type EmergencyContact, type SosEvent } from '../services/api';
 
-export type AdminTab = 'overview' | 'drivers' | 'fares' | 'alerts' | 'analytics' | 'sos';
+export type AdminTab = 'overview' | 'drivers' | 'fares' | 'alerts' | 'sos';
 
 const TAB_LABELS: { id: AdminTab; label: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
   { id: 'overview', label: 'Overview', Icon: IconAdmin },
-  { id: 'analytics', label: 'Analytics', Icon: IconChart },
   { id: 'drivers', label: 'Drivers', Icon: IconDriver },
   { id: 'fares', label: 'Fare Zones', Icon: IconMap },
   { id: 'alerts', label: 'Alerts', Icon: IconAlerts },
@@ -32,12 +31,11 @@ function BarChart({ data }: { data: { name: string; rides: number; drivers: numb
             <span className="font-medium text-ink">{d.name}</span>
             <span className="text-ink-soft">{d.rides} rides</span>
           </div>
-          <div className="flex gap-1 h-6 items-center">
+          <div className="flex h-6 items-center">
             <div
               className="h-full rounded-full bg-orange transition-all duration-700"
               style={{ width: `${(d.rides / max) * 100}%`, minWidth: 24 }}
             />
-            <span className="text-xs text-orange-dark font-semibold ml-1">{d.drivers}D</span>
           </div>
         </div>
       ))}
@@ -137,7 +135,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
   const [driversError, setDriversError] = useState('');
   const [updatingDriver, setUpdatingDriver] = useState<number | null>(null);
   useEffect(() => {
-    if (tab !== 'overview' && tab !== 'analytics') return;
+    if (tab !== 'overview') return;
     let mounted = true;
     getAdminSummary().then(data => { if (mounted) { setSummary(data); setSummaryError(''); } }).catch(error => { if (mounted) setSummaryError(error instanceof Error ? error.message : 'Could not load dashboard metrics.'); });
     return () => { mounted = false; };
@@ -201,7 +199,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
       <div className="admin-dashboard-header">
         <div className="admin-dashboard-header__content">
           <div className="admin-dashboard-header__copy">
-            <h1>Admin dashboard</h1>
+            <h2>Today across five towns</h2>
             <p>Carrascal · Cantilan · Madrid · Carmen · Lanuza</p>
           </div>
           <div className="admin-dashboard-header__actions">
@@ -247,7 +245,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
 
             {/* Municipality comparison */}
             <div className="app-card">
-              <h3 className="section-title">Municipality Overview</h3>
+              <h3 className="section-title">Rides this week by town</h3>
               <BarChart data={summary?.by_municipality ?? []}/>
             </div>
 
@@ -290,16 +288,6 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
               </div>
             </div>
           </>
-        )}
-
-        {tab === 'analytics' && (
-          <div className="space-y-6">
-            <div className="app-card">
-              <h3 className="section-title mb-1">Rides This Week</h3>
-              <p className="text-xs text-ink-soft mb-4">Ride requests in the last seven days, grouped by municipality</p>
-              {summary?.by_municipality.length ? <BarChart data={summary.by_municipality}/> : <p className="text-sm text-ink-soft">No ride activity for this period.</p>}
-            </div>
-          </div>
         )}
 
         {tab === 'drivers' && (

@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import Map from '../components/Map';
-import { IconAlertCircle, IconDriver, IconLocation, IconNavigation, IconPhone, IconShare, IconShield, IconStar, IconTODA, IconX } from '../components/Icons';
+import { IconAlertCircle, IconDriver, IconNavigation, IconPhone, IconShare, IconStar, IconTODA, IconX } from '../components/Icons';
 import { cancelRide, createTripShare, getRideTracking, rateRide, rideFare, updateRideStatus, type TrackingPoint, type TrackingSnapshot } from '../services/api';
 import { interpolatePoint } from '../services/tracking';
 import { openDeviceNavigation, publicTripUrl, shareText } from '../services/platform';
@@ -196,7 +196,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
           </div>
         </div>
 
-        <button type="button" disabled={busy} onClick={() => void shareRide()} className="safety-share-card flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"><IconShield size={20}/><span className="flex-1"><span className="block text-sm font-bold">Share your trip</span><span className="block text-xs opacity-80">{shareNotice || 'Send a live trip link to someone you trust.'}</span></span><IconShare size={18}/></button>
+        <button type="button" disabled={busy} onClick={() => void shareRide()} className="safety-share-card flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"><IconShare size={20}/><span className="flex-1"><span className="block text-sm font-bold">Share your trip</span><span className="block text-xs opacity-80">{shareNotice || 'Send a live trip link to someone you trust.'}</span></span></button>
 
         {targetPosition && <button type="button" onClick={() => openDeviceNavigation({ ...targetPosition, label: target?.label })} className="btn-secondary w-full"><IconNavigation size={18}/>Navigate to {snapshot?.status === 'in_progress' ? 'destination' : 'pickup'}</button>}
         <SosControl rideId={rideId} municipality={snapshot?.municipality || 'Carrascal'}/>

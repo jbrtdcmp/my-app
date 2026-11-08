@@ -97,17 +97,7 @@ function PassengerProfile({ user, onLogout }: Omit<ProfileProps, 'role'>) {
           { label: 'Full name', value: user?.name ?? '' },
           { label: 'Phone number', value: user?.phone ?? '' },
           { label: 'Email', value: user?.email ?? '' },
-          { label: 'Municipality', value: '' },
-        ] },
-        { title: 'Ride preferences', rows: [
-          { label: 'Saved places', value: 'Not available' },
-          { label: 'Favorite drivers', value: 'Not available' },
           { label: 'Language', value: LANGUAGES.find(language => language.id === 'en')?.label ?? 'English' },
-          { label: 'Low-data mode', value: 'Not available' },
-        ] },
-        { title: 'Account support', rows: [
-          { label: 'Change password', value: 'Not available' },
-          { label: 'Help and SOS contacts', value: 'Available on your ride screen' },
         ] },
       ]}
     >
@@ -140,22 +130,17 @@ function DriverProfile({ user, onLogout }: Omit<ProfileProps, 'role'>) {
           { label: 'Full name', value: user?.name ?? '' },
           { label: 'Phone number', value: user?.phone ?? '' },
           { label: 'Email', value: user?.email ?? '' },
-          { label: 'Municipality', value: '' },
+          { label: 'Language', value: LANGUAGES.find(language => language.id === 'en')?.label ?? 'English' },
         ] },
         { title: 'Vehicle and verification', rows: [
           { label: 'Plate number', value: profile?.plate_number ?? '' },
           { label: 'Body number', value: profile?.body_number ?? '' },
-          { label: 'Vehicle type', value: '' },
-          { label: 'License number', value: '' },
           { label: 'TODA', value: profile?.toda_name ?? '' },
-          { label: 'ID photo', value: '' },
           { label: 'Approval status', value: profile?.verification_status ?? '' },
         ] },
         { title: 'Driver activity', rows: [
           { label: 'Rating', value: profile?.rating == null ? '' : String(profile.rating) },
           { label: 'Total rides', value: profile?.total_rides == null ? '' : String(profile.total_rides) },
-          { label: 'Language', value: LANGUAGES.find(language => language.id === 'en')?.label ?? 'English' },
-          { label: 'Change password', value: 'Not available' },
         ] },
       ]}
     >
@@ -175,13 +160,7 @@ function AdminProfile({ user, onLogout }: Omit<ProfileProps, 'role'>) {
           { label: 'Full name', value: user?.name ?? '' },
           { label: 'Email', value: user?.email ?? '' },
           { label: 'Role and permissions', value: user?.role ?? '' },
-          { label: 'Last login', value: '' },
-        ] },
-        { title: 'Preferences', rows: [
-          { label: 'Change password', value: 'Not available' },
           { label: 'Language', value: LANGUAGES.find(language => language.id === 'en')?.label ?? 'English' },
-          { label: 'Display preferences', value: 'Not available' },
-          { label: 'Settings', value: 'Open Settings from the admin menu' },
         ] },
       ]}
     />

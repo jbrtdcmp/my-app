@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Map, { type MapPoint } from '../components/Map';
-import { IconCheck, IconChevronDown, IconClock, IconDestination, IconDriver, IconKey, IconLocation, IconMap, IconPackage, IconTag, IconUsers } from '../components/Icons';
+import { IconCheck, IconChevronDown, IconClock, IconDriver, IconKey, IconLocation, IconPackage, IconTag, IconUsers } from '../components/Icons';
 import { StatusBadge } from '../components/ui';
 import { MUNICIPALITIES, RIDE_TYPES, type Landmark, type Municipality, type RideType } from '../data';
 import { estimateFare, getRides, ApiError, type ApiRide, type FareEstimate, type RideRequest } from '../services/api';
@@ -61,9 +61,6 @@ function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: 
               onClick={() => { onChange(m.id); setOpen(false); }}
               className="town-menu__item"
             >
-              <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-orange-soft text-orange-action">
-                {m.isInterTown ? <IconMap size={16}/> : <IconLocation size={16}/>}
-              </span>
               <span className="min-w-0 flex-1">
                 <span className="block">{m.label}</span>
                 {m.isInterTown && <span className="block text-xs font-medium text-ink-soft">e.g. Cantilan to Carmen</span>}
@@ -465,7 +462,6 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                     aria-pressed={pickup === lm.name}
                     className="app-chip app-chip--soft"
                   >
-                    <IconLocation size={16}/>
                     {lm.name.replace(pickupMuni.name + ' ', '')}
                   </button>
                 ))}
@@ -485,7 +481,6 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
                     aria-pressed={destination === lm.name}
                     className="app-chip app-chip--soft"
                   >
-                    <IconDestination size={16}/>
                     {lm.name.replace(destinationMuni.name + ' ', '')}
                   </button>
                 ))}

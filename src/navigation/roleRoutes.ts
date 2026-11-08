@@ -1,6 +1,6 @@
 export type AppRole = 'passenger' | 'driver' | 'admin';
-export type AppScreen = 'home' | 'map' | 'bookings' | 'alerts' | 'profile' | 'driver' | 'admin' | 'drivers';
-export type RoleIcon = 'alerts' | 'bookings' | 'driver' | 'home' | 'map' | 'profile';
+export type AppScreen = 'home' | 'bookings' | 'alerts' | 'profile' | 'driver' | 'admin' | 'drivers';
+export type RoleIcon = 'admin' | 'alerts' | 'bookings' | 'driver' | 'home' | 'profile';
 export const AUTH_PATHS = {
   onboarding: '/onboarding',
   signIn: '/sign-in',
@@ -32,20 +32,17 @@ export const ROLE_ROUTES: Record<AppRole, RoleRouteConfig> = {
     rideFallback: '/passenger/rides',
     paths: {
       home: '/passenger/home',
-      map: '/passenger/map',
       bookings: '/passenger/rides',
       alerts: '/passenger/alerts',
       profile: '/passenger/profile',
     },
     parents: {
-      map: '/passenger/home',
       bookings: '/passenger/home',
       alerts: '/passenger/home',
       profile: '/passenger/home',
     },
     menu: [
       { id: 'home', label: 'Home', path: '/passenger/home', icon: 'home' },
-      { id: 'map', label: 'Map', path: '/passenger/map', icon: 'map' },
       { id: 'bookings', label: 'Rides', path: '/passenger/rides', icon: 'bookings' },
       { id: 'alerts', label: 'Alerts', path: '/passenger/alerts', icon: 'alerts' },
       { id: 'profile', label: 'Profile', path: '/passenger/profile', icon: 'profile' },
@@ -58,20 +55,17 @@ export const ROLE_ROUTES: Record<AppRole, RoleRouteConfig> = {
     rideFallback: '/driver/rides',
     paths: {
       driver: '/driver/requests',
-      map: '/driver/map',
       bookings: '/driver/rides',
       alerts: '/driver/alerts',
       profile: '/driver/profile',
     },
     parents: {
-      map: '/driver/requests',
       bookings: '/driver/requests',
       alerts: '/driver/requests',
       profile: '/driver/requests',
     },
     menu: [
       { id: 'driver', label: 'Requests', path: '/driver/requests', icon: 'driver' },
-      { id: 'map', label: 'Map', path: '/driver/map', icon: 'map' },
       { id: 'bookings', label: 'Rides', path: '/driver/rides', icon: 'bookings' },
       { id: 'alerts', label: 'Alerts', path: '/driver/alerts', icon: 'alerts' },
       { id: 'profile', label: 'Profile', path: '/driver/profile', icon: 'profile' },
@@ -95,11 +89,11 @@ export const ROLE_ROUTES: Record<AppRole, RoleRouteConfig> = {
       alerts: '/admin/overview',
       profile: '/admin/overview',
     },
+    // Drivers, community alerts and SOS are tabs inside the dashboard, so they
+    // are not repeated here. /admin/drivers and /admin/alerts still resolve.
     menu: [
-      { id: 'admin', label: 'Overview', path: '/admin/overview', icon: 'home' },
-      { id: 'drivers', label: 'Drivers', path: '/admin/drivers', icon: 'driver' },
+      { id: 'admin', label: 'Dashboard', path: '/admin/overview', icon: 'admin' },
       { id: 'bookings', label: 'Rides', path: '/admin/rides', icon: 'bookings' },
-      { id: 'alerts', label: 'Alerts', path: '/admin/alerts', icon: 'alerts' },
       { id: 'profile', label: 'Profile', path: '/admin/profile', icon: 'profile' },
     ],
   },

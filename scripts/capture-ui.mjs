@@ -290,13 +290,14 @@ async function auditRoleNavigation(browser, role) {
   const topLevel = ['home', 'rides', 'profile'];
 
   for (const screen of topLevel) {
+    // Every role's tab bar has Rides and Profile tabs.
     for (const action of [
-      { name: 'bell', selector: 'button[aria-label="Alerts"]' },
-      { name: 'avatar', selector: 'button[aria-label="Profile"]' },
+      { name: 'Rides tab', label: 'Rides' },
+      { name: 'Profile tab', label: 'Profile' },
     ]) {
       await page.goto(`${BASE_URL}${SCREEN_PATHS[role][screen]}`, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(500);
-      const control = page.locator(action.selector).first();
+      const control = page.locator('nav[aria-label="Main navigation"]:visible button').filter({ hasText: action.label }).first();
       if (!(await control.count())) { issues.push(`FAIL ${role} ${screen}: ${action.name} control not found`); continue; }
       const from = new URL(page.url()).pathname;
       await control.click();
@@ -415,9 +416,9 @@ async function runEndToEnd(browser) {
       results.push(...await bannerOverlapIssues(passenger, `passenger home Active ride banner @${width}`));
     }
 
-    // Bell mid-ride, then resume from Bookings.
+    // Leave for the Alerts tab, then resume from Bookings.
     await passenger.setViewportSize({ width: 390, height: 844 });
-    await passenger.locator('button[aria-label="Alerts"]').click();
+    await passenger.locator('nav[aria-label="Main navigation"]:visible button').filter({ hasText: 'Alerts' }).click();
     await passenger.waitForTimeout(800);
     await passenger.goto(`${BASE_URL}/passenger/rides`, { waitUntil: 'domcontentloaded' });
     await passenger.waitForTimeout(1500);

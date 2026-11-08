@@ -11,9 +11,9 @@ import {
 } from '../src/navigation/roleRoutes.ts';
 
 const expectedMenus = {
-  passenger: ['home', 'map', 'bookings', 'alerts', 'profile'],
-  driver: ['driver', 'map', 'bookings', 'alerts', 'profile'],
-  admin: ['admin', 'drivers', 'bookings', 'alerts', 'profile'],
+  passenger: ['home', 'bookings', 'alerts', 'profile'],
+  driver: ['driver', 'bookings', 'alerts', 'profile'],
+  admin: ['admin', 'bookings', 'profile'],
 };
 
 for (const [role, expected] of Object.entries(expectedMenus)) {
@@ -42,6 +42,16 @@ for (const [role, expected] of Object.entries(expectedMenus)) {
     }
   });
 }
+
+test('removed Map tab paths fall back to each role home', () => {
+  assert.deepEqual(resolveRolePath('/passenger/map'), { role: 'passenger', screen: 'home' });
+  assert.deepEqual(resolveRolePath('/driver/map'), { role: 'driver', screen: 'driver' });
+});
+
+test('admin sections kept out of the menu still resolve', () => {
+  assert.deepEqual(resolveRolePath('/admin/drivers'), { role: 'admin', screen: 'drivers' });
+  assert.deepEqual(resolveRolePath('/admin/alerts'), { role: 'admin', screen: 'alerts' });
+});
 
 test('ride detail paths resolve only within passenger and driver trees', () => {
   for (const role of ['passenger', 'driver']) {
