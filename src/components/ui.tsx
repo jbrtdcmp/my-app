@@ -136,15 +136,15 @@ export function BottomSheet({ children, className = '', onToggle }: { children: 
 }
 
 export function ConfirmDialog({ title, children, onCancel, onConfirm, confirmLabel = 'Confirm' }: { title: string; children: ReactNode; onCancel: () => void; onConfirm: () => void; confirmLabel?: string }) {
-  return <div className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center p-4 md:items-center"><section className="dialog-card" role="dialog" aria-modal="true" aria-label={title}><h2>{title}</h2><div className="dialog-card__body text-sm text-ink-soft">{children}</div><div className="flex gap-2"><AppButton type="button" variant="secondary" className="flex-1" onClick={onCancel}>Cancel</AppButton><AppButton type="button" variant="danger" className="flex-1" onClick={onConfirm}>{confirmLabel}</AppButton></div></section></div>;
+  return <div className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center p-4 md:items-center"><section className="dialog-card" role="dialog" aria-modal="true" aria-label={title}><div className="dialog-icon dialog-icon--danger"><IconAlertCircle size={24}/></div><h2 className="text-center">{title}</h2><div className="dialog-card__body text-center text-sm text-ink-soft">{children}</div><div className="flex gap-2"><AppButton type="button" variant="secondary" className="flex-1" onClick={onCancel}>Cancel</AppButton><AppButton type="button" variant="danger" className="flex-1" onClick={onConfirm}>{confirmLabel}</AppButton></div></section></div>;
 }
 
 export function TopBar({ title, leading, trailing }: { title: string; leading?: ReactNode; trailing?: ReactNode }) {
-  return <header className="app-navigation-bar border-b border-border bg-surface"><div className="app-navigation-bar__side">{leading}</div><h1 className="app-navigation-bar__title">{title}</h1><div className="app-navigation-bar__side app-navigation-bar__side--trailing">{trailing}</div></header>;
+  return <header className="app-navigation-bar relative z-10 border-b border-border bg-surface"><div className="app-navigation-bar__side">{leading}</div><h1 className="app-navigation-bar__title">{title}</h1><div className="app-navigation-bar__side app-navigation-bar__side--trailing">{trailing}</div></header>;
 }
 
 export function BottomTabBar({ tabs, active, onSelect }: { tabs: { id: string; label: string; icon?: ReactNode; badge?: ReactNode }[]; active: string; onSelect: (id: string) => void }) {
-  return <nav aria-label="Main navigation" className="bottom-navigation flex bg-surface pb-safe">{tabs.map(tab => <button key={tab.id} type="button" aria-current={active === tab.id ? 'page' : undefined} className="bottom-navigation__tab relative flex flex-1 flex-col items-center justify-center gap-1" onClick={() => onSelect(tab.id)}>{tab.icon}{tab.badge && <span className="absolute right-1/2 top-0 translate-x-4">{tab.badge}</span>}<span className="text-xs">{tab.label}</span></button>)}</nav>;
+  return <nav aria-label="Main navigation" className="bottom-navigation">{tabs.map(tab => <button key={tab.id} type="button" aria-current={active === tab.id ? 'page' : undefined} className="bottom-navigation__tab" onClick={() => onSelect(tab.id)}><span className="bottom-navigation__icon">{tab.icon}</span>{tab.badge && <span className="absolute right-1/2 top-1 translate-x-6">{tab.badge}</span>}<span className="bottom-navigation__label">{tab.label}</span></button>)}</nav>;
 }
 
 export function AppShell({ navigation, header, children, footer }: { navigation: ReactNode; header: ReactNode; children: ReactNode; footer?: ReactNode }) {

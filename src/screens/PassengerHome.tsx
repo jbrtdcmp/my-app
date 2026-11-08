@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Map, { type MapPoint } from '../components/Map';
-import { IconCheck, IconChevronDown, IconLocation, IconDestination, IconMap } from '../components/Icons';
+import { IconCheck, IconChevronDown, IconClock, IconDestination, IconDriver, IconKey, IconLocation, IconMap, IconPackage, IconTag, IconUsers } from '../components/Icons';
+import { StatusBadge } from '../components/ui';
 import { MUNICIPALITIES, RIDE_TYPES, type Landmark, type Municipality, type RideType } from '../data';
 import { estimateFare, getRides, ApiError, type ApiRide, type FareEstimate, type RideRequest } from '../services/api';
 
@@ -18,48 +19,56 @@ const DISCOUNTS = [
   { id: 'pwd', label: 'PWD 20%' },
 ];
 
+// Short tile labels; the full ride type name stays in the accessible label.
+const SERVICE_TILES: Record<RideType, { short: string; icon: ReactNode }> = {
+  regular: { short: 'Regular', icon: <IconDriver size={24}/> },
+  pakyaw: { short: 'Private', icon: <IconKey size={24}/> },
+  padala: { short: 'Parcel', icon: <IconPackage size={24}/> },
+  scheduled: { short: 'Schedule', icon: <IconClock size={24}/> },
+  group: { short: 'Group', icon: <IconUsers size={24}/> },
+};
+
+const SHEET_EXPANDED_HEIGHT = 470;
+const SHEET_COLLAPSED_HEIGHT = 196;
+
 const peso = (value: number) => `₱${Number.isInteger(value) ? value : value.toFixed(2)}`;
 
 function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const activeM = MUNICIPALITIES.find(m => m.id === active);
-  const activeLabel = active === 'intertown' ? 'Inter-town Ride' : activeM?.name ?? 'Carrascal';
+  const activeLabel = active === 'intertown' ? 'Inter-town ride' : activeM?.name ?? 'Carrascal';
 
   const all = [
     ...MUNICIPALITIES.map(m => ({ id: m.id, label: m.name, isInterTown: false })),
-    { id: 'intertown', label: 'Inter-town Ride', isInterTown: true },
+    { id: 'intertown', label: 'Inter-town ride', isInterTown: true },
   ];
 
   return (
     <div className="relative z-20" data-testid="municipality-switcher">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-full border-2 border-orange bg-white shadow-sm"
-      >
-        <span className="w-2 h-2 rounded-full bg-orange flex-shrink-0"/>
-        <span className="font-semibold text-sm text-ink">{activeLabel}</span>
-        <IconChevronDown size={16} className="text-orange-dark"/>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" className="town-switcher">
+        <span className="town-switcher__pin"><IconLocation size={16}/></span>
+        <span>{activeLabel}</span>
+        <IconChevronDown size={16} className="text-ink-soft"/>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-2 bg-white rounded-2xl shadow-float border border-border overflow-hidden w-52 animate-fade-in">
+        <div className="town-menu" role="menu">
           {all.map(m => (
             <button
               key={m.id}
+              type="button"
+              role="menuitem"
+              aria-current={m.id === active ? 'true' : undefined}
               onClick={() => { onChange(m.id); setOpen(false); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-orange-light transition-colors ${
-                m.id === active ? 'bg-orange-light' : ''
-              }`}
+              className="town-menu__item"
             >
-              {m.isInterTown
-                ? <span className="w-5 h-5 rounded-full bg-sunset/20 flex items-center justify-center"><IconMap size={16} className="text-orange-dark"/></span>
-                : <span className="w-5 h-5 rounded-full bg-orange/20 flex-shrink-0"/>}
-              <div>
-                <p className="text-sm font-medium text-ink">{m.label}</p>
-                {m.isInterTown && <p className="text-xs text-orange-dark">e.g. Cantilan → Carmen</p>}
-              </div>
-              {m.id === active && (
-                <IconCheck size={16} className="ml-auto text-orange-dark"/>
-              )}
+              <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-orange-soft text-orange-action">
+                {m.isInterTown ? <IconMap size={16}/> : <IconLocation size={16}/>}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block">{m.label}</span>
+                {m.isInterTown && <span className="block text-xs font-medium text-ink-soft">e.g. Cantilan to Carmen</span>}
+              </span>
+              {m.id === active && <IconCheck size={16} className="text-orange-action"/>}
             </button>
           ))}
         </div>
@@ -69,50 +78,70 @@ function MunicipalitySwitcher({ active, onChange }: { active: string; onChange: 
 }
 
 function FarePreview({ estimate, loading, error, hasPins }: { estimate: FareEstimate | null; loading: boolean; error: string; hasPins: boolean }) {
+  const discountName = estimate?.discount === 'student' ? 'Student' : estimate?.discount === 'senior' ? 'Senior' : 'PWD';
   return (
-    <div className="bg-orange-light rounded-2xl p-4 mt-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-orange-dark uppercase tracking-wide">Fare Breakdown</span>
-        <span className="text-xs text-ink-soft">Cash only</span>
+    <section className="fare-card" aria-label="Fare breakdown">
+      <div className="fare-card__head">
+        <span className="fare-card__title"><IconTag size={18}/>Fixed fare</span>
+        <span className="meta-pill">Cash</span>
       </div>
-      <p className="mb-2 text-xs font-medium text-orange-dark">Fixed fare. No surge pricing.</p>
       {!hasPins ? (
-        <p className="text-sm text-ink-soft">Set pickup and destination pins on the map to see the fixed fare.</p>
+        <p className="text-sm text-ink-soft">Set your pickup and destination to see the fare. No surge pricing.</p>
       ) : error ? (
-        <p role="alert" className="text-sm text-danger">{error}</p>
+        <p role="alert" className="text-sm font-medium text-danger">{error}</p>
       ) : loading || !estimate ? (
         <div className="space-y-2" aria-label="Calculating fare">
           <div className="skeleton-block h-3 w-2/3"/>
           <div className="skeleton-block h-3 w-1/2"/>
         </div>
       ) : (
-        <div className="space-y-1.5 text-sm">
-          <div className="flex justify-between text-ink-soft">
-            <span>{estimate.is_intertown ? `${estimate.municipality} → ${estimate.destination_municipality}` : `Base fare (includes ${estimate.included_km} km)`}</span>
-            <span className="font-medium text-ink">{peso(estimate.base_fare)}</span>
+        <>
+          <div className="fare-card__rows">
+            <div className="fare-card__row">
+              <span>{estimate.is_intertown ? `${estimate.municipality} to ${estimate.destination_municipality}` : `Base fare (includes ${estimate.included_km} km)`}</span>
+              <strong>{peso(estimate.base_fare)}</strong>
+            </div>
+            {!estimate.is_intertown && estimate.billable_km > 0 && (
+              <div className="fare-card__row"><span>Next {estimate.billable_km} km</span><strong>{peso(estimate.distance_fare)}</strong></div>
+            )}
+            {estimate.multiplier_amount > 0 && (
+              <div className="fare-card__row"><span>Ride type adjustment</span><strong>+{peso(estimate.multiplier_amount)}</strong></div>
+            )}
+            {estimate.discount_amount > 0 && (
+              <div className="fare-card__row text-success"><span>{discountName} discount ({estimate.discount_percent}%)</span><strong className="text-success">-{peso(estimate.discount_amount)}</strong></div>
+            )}
+            {estimate.rounding_adjustment > 0 && (
+              <div className="fare-card__row"><span>Rounded up to nearest ₱5</span><strong>+{peso(estimate.rounding_adjustment)}</strong></div>
+            )}
           </div>
-          {!estimate.is_intertown && estimate.billable_km > 0 && (
-            <div className="flex justify-between text-ink-soft">
-              <span>Distance ({estimate.distance_km} km)</span><span className="font-medium text-ink">{peso(estimate.distance_fare)}</span>
-            </div>
-          )}
-          {estimate.multiplier_amount > 0 && (
-            <div className="flex justify-between text-ink-soft">
-              <span>Ride type adjustment</span><span className="font-medium text-ink">+{peso(estimate.multiplier_amount)}</span>
-            </div>
-          )}
-          {estimate.discount_amount > 0 && (
-            <div className="flex justify-between text-success">
-              <span className="font-medium">{estimate.discount === 'student' ? 'Student' : estimate.discount === 'senior' ? 'Senior' : 'PWD'} Discount ({estimate.discount_percent}%)</span>
-              <span className="font-semibold">-{peso(estimate.discount_amount)}</span>
-            </div>
-          )}
-          <div className="border-t border-orange/20 pt-2 flex justify-between font-semibold text-base">
-            <span className="text-ink">Total</span>
-            <span className="text-orange-dark">{peso(estimate.total)}</span>
-          </div>
-        </div>
+          <div className="fare-card__total"><span>Total</span><strong>{peso(estimate.total)}</strong></div>
+        </>
       )}
+    </section>
+  );
+}
+
+function WhereCard({ pickup, destination, pickupPlaceholder, onPickupFocus, onPickupChange, onDestinationFocus, onDestinationChange }: {
+  pickup: string;
+  destination: string;
+  pickupPlaceholder: string;
+  onPickupFocus: () => void;
+  onPickupChange: (value: string) => void;
+  onDestinationFocus: () => void;
+  onDestinationChange: (value: string) => void;
+}) {
+  return (
+    <div className="where-card">
+      <label className="where-row">
+        <span className="route-dot route-dot--pickup" aria-hidden="true"/>
+        <span className="sr-only">Pickup</span>
+        <input value={pickup} onFocus={onPickupFocus} onChange={event => onPickupChange(event.target.value)} placeholder={pickupPlaceholder} className="bg-transparent"/>
+      </label>
+      <label className="where-row">
+        <span className="route-dot route-dot--destination" aria-hidden="true"/>
+        <span className="sr-only">Destination</span>
+        <input value={destination} onFocus={onDestinationFocus} onChange={event => onDestinationChange(event.target.value)} placeholder="Where to?" className="bg-transparent"/>
+      </label>
     </div>
   );
 }
@@ -284,6 +313,19 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
           ? 'Waiting for the fare estimate…'
           : 'Fixed fare. No surge pricing.');
 
+  const selectedRideType = RIDE_TYPES.find(type => type.id === rideType);
+  const whereCard = (
+    <WhereCard
+      pickup={pickup}
+      destination={destination}
+      pickupPlaceholder={`Pickup in ${pickupMuni.name}`}
+      onPickupFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
+      onPickupChange={value => { setPickup(value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
+      onDestinationFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
+      onDestinationChange={value => { setDestination(value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
+    />
+  );
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
       {/* Map */}
@@ -327,22 +369,25 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
 
         {/* Active ride banner */}
         {activeRide && onResumeRide && (
-          <div data-testid="active-ride-banner" className="absolute top-16 left-3 right-3 z-20 bg-surface rounded-2xl border border-orange/30 shadow-card px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange-dark mb-1">Active ride</p>
-            <p className="text-sm font-medium text-ink leading-tight truncate">{activeRide.pickup_label} → {activeRide.destination_label}</p>
-            <p className="text-xs text-ink-soft mt-0.5 capitalize">{activeRide.status.replace('_', ' ')}</p>
-            <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary w-full mt-3">View active ride</button>
+          <div data-testid="active-ride-banner" className="active-ride-card absolute top-20 left-3 right-3 z-20">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="eyebrow">Your active ride</span>
+              <StatusBadge status={activeRide.status}/>
+            </div>
+            <p className="truncate text-sm font-bold text-ink">{activeRide.pickup_label}</p>
+            <p className="truncate text-sm text-ink-soft">to {activeRide.destination_label}</p>
+            <button type="button" onClick={() => onResumeRide(activeRide.id)} className="btn-primary mt-3 w-full">View active ride</button>
           </div>
         )}
       </div>
 
-      {/* Bottom Sheet */}
-      <div
-        className={`app-bottom-sheet absolute left-0 right-0 bottom-0 bg-surface rounded-t-3xl shadow-float transition-all duration-500 overflow-y-auto`}
-        style={{ height: sheetExpanded ? 440 : 174, maxHeight: '85vh' }}
-      >
-        {/* Handle */}
+      {/* Booking sheet */}
+      <div className="booking-sheet" style={{ height: sheetExpanded ? SHEET_EXPANDED_HEIGHT : SHEET_COLLAPSED_HEIGHT, maxHeight: '85vh' }}>
         <div
+          role="button"
+          tabIndex={0}
+          aria-label={sheetExpanded ? 'Collapse booking details' : 'Expand booking details'}
+          aria-expanded={sheetExpanded}
           onPointerDown={event => {
             dragStartY.current = event.clientY;
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -364,62 +409,40 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             }
             setSheetExpanded(!sheetExpanded);
           }}
-          className="flex justify-center pt-3 pb-2 cursor-pointer sticky top-0 bg-surface z-10 touch-none"
+          onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSheetExpanded(value => !value); } }}
+          className="booking-sheet__grip"
         >
-          <div className="w-10 h-1.5 rounded-full bg-border"/>
+          <span className="sheet-grip"/>
         </div>
 
         {!sheetExpanded ? (
-          <div className="px-4 pb-2 pt-1 space-y-2">
-            <h2 className="font-semibold text-lg text-ink">Where to?</h2>
-            <div className="bg-orange-light rounded-2xl p-3 space-y-2">
-              <div className="flex items-center gap-3">
-                <IconLocation size={18} className="text-orange-dark flex-shrink-0"/>
-                <input
-                  value={pickup}
-                  onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
-                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
-                  placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
-                />
-              </div>
-              <div className="h-px bg-orange/20"/>
-              <div className="flex items-center gap-3">
-                <IconDestination size={18} className="text-ink-soft flex-shrink-0"/>
-                <input
-                  value={destination}
-                  onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
-                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
-                  placeholder="Destination: Where to go?"
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
-                />
-              </div>
-            </div>
-            {pinHint && <p role="status" className="text-xs font-medium text-orange-dark">{pinHint}</p>}
+          <div className="booking-sheet__body">
+            <h2 className="booking-sheet__title">Where to?</h2>
+            {whereCard}
+            {pinHint && <p role="status" className="text-sm font-semibold text-orange-dark">{pinHint}</p>}
           </div>
         ) : (
-          <div className="px-4 pb-6 space-y-4">
-            {/* Title */}
-            <h2 className="font-semibold text-lg text-ink">Where to?</h2>
+          <div className="booking-sheet__body">
+            <h2 className="booking-sheet__title">Where to?</h2>
 
             {isIntertown && (
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide">
-                  From town
+              <div className="grid grid-cols-2 gap-3">
+                <label className="form-field">
+                  <span className="field-label">From town</span>
                   <select
                     value={fromTown}
                     onChange={event => { setFromTown(event.target.value); setPickupPosition(null); setPickup(''); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
-                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:border-orange"
+                    className="app-select"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </label>
-                <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide">
-                  To town
+                <label className="form-field">
+                  <span className="field-label">To town</span>
                   <select
                     value={toTown}
                     onChange={event => { setToTown(event.target.value); setDestinationPosition(null); setDestination(''); setPendingPin(null); setPinHint(''); }}
-                    className="mt-1 w-full px-3 py-2 rounded-xl border-2 border-border bg-surface text-sm text-ink focus:border-orange"
+                    className="app-select"
                   >
                     {MUNICIPALITIES.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -427,114 +450,98 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
               </div>
             )}
 
-            {/* Pickup & Destination */}
-            <div className="bg-orange-light rounded-2xl p-3 space-y-2">
-              <div className="flex items-center gap-3">
-                <IconLocation size={18} className="text-orange-dark flex-shrink-0"/>
-                <input
-                  value={pickup}
-                  onFocus={() => { setActivePickField('pickup'); setPendingPin(null); setPinHint(''); }}
-                  onChange={e => { setPickup(e.target.value); setPickupPosition(null); setCurrentPosition(null); setPendingPin(null); setPinHint(''); }}
-                  placeholder={`Pickup: Landmark or Barangay in ${pickupMuni.name}`}
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
-                />
-              </div>
-              <div className="h-px bg-orange/20"/>
-              <div className="flex items-center gap-3">
-                <IconDestination size={18} className="text-ink-soft flex-shrink-0"/>
-                <input
-                  value={destination}
-                  onFocus={() => { setActivePickField('destination'); setPendingPin(null); setPinHint(''); }}
-                  onChange={e => { setDestination(e.target.value); setDestinationPosition(null); setPendingPin(null); setPinHint(''); }}
-                  placeholder="Destination: Where to go?"
-                  className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-soft/60"
-                />
-              </div>
-            </div>
+            {whereCard}
 
             {/* Quick pickup landmarks */}
-            <div data-testid="quick-pickup">
-              <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Quick Pickup in {pickupMuni.name}</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            <section className="home-section" data-testid="quick-pickup">
+              <h3 className="home-section__title">Pick up from <span>{pickupMuni.name}</span></h3>
+              <div className="chip-row">
                 {pickupMuni.landmarks.map(lm => (
                   <button
                     key={lm.id}
+                    type="button"
                     data-testid={`pickup-landmark-${lm.id}`}
                     onClick={() => choosePickupLandmark(lm)}
-                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange-dark transition-colors"
+                    aria-pressed={pickup === lm.name}
+                    className="app-chip app-chip--soft"
                   >
+                    <IconLocation size={16}/>
                     {lm.name.replace(pickupMuni.name + ' ', '')}
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
 
             {/* Quick destination landmarks */}
-            <div data-testid="quick-destination">
-              <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Quick Destination in {destinationMuni.name}</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            <section className="home-section" data-testid="quick-destination">
+              <h3 className="home-section__title">Popular destinations <span>{destinationMuni.name}</span></h3>
+              <div className="chip-row">
                 {destinationMuni.landmarks.map(lm => (
                   <button
                     key={lm.id}
+                    type="button"
                     data-testid={`destination-landmark-${lm.id}`}
                     onClick={() => chooseDestinationLandmark(lm)}
-                    className="flex-shrink-0 text-xs bg-surface border border-border rounded-full px-3 py-1.5 text-ink-soft hover:border-orange hover:text-orange-dark transition-colors"
+                    aria-pressed={destination === lm.name}
+                    className="app-chip app-chip--soft"
                   >
+                    <IconDestination size={16}/>
                     {lm.name.replace(destinationMuni.name + ' ', '')}
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Ride type chips */}
-            <div>
-              <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Ride Type</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+            {/* Ride types */}
+            <section className="home-section">
+              <h3 className="home-section__title">Choose a ride</h3>
+              <div className="service-grid">
                 {RIDE_TYPES.map(rt => (
                   <button
                     key={rt.id}
+                    type="button"
                     onClick={() => setRideType(rt.id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150 ${
-                      rideType === rt.id
-                        ? 'border-orange-dark bg-orange-dark text-white'
-                        : 'border-border bg-surface text-ink-soft hover:border-orange'
-                    }`}
+                    aria-pressed={rideType === rt.id}
+                    aria-label={`${rt.label}: ${rt.desc}`}
+                    className="service-tile"
                   >
-                    <span>{rt.label}</span>
+                    <span className="service-tile__icon">{SERVICE_TILES[rt.id].icon}</span>
+                    <span className="service-tile__label">{SERVICE_TILES[rt.id].short}</span>
                   </button>
                 ))}
               </div>
-            </div>
+              {selectedRideType && <p className="text-sm text-ink-soft"><strong className="font-bold text-ink">{selectedRideType.label}</strong> · {selectedRideType.desc}</p>}
+            </section>
 
             {/* Discount selector */}
-            <div>
-              <p className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-2">Community Discount</p>
-              <div className="flex gap-2">
+            <section className="home-section">
+              <h3 className="home-section__title">Community discount</h3>
+              <div className="chip-row">
                 {DISCOUNTS.map(d => (
                   <button
                     key={d.id}
+                    type="button"
                     onClick={() => setDiscount(d.id)}
-                    className={`flex-1 py-2 rounded-xl border-2 text-xs font-medium transition-all duration-150 ${
-                      discount === d.id
-                        ? 'border-success bg-success-bg text-success'
-                        : 'border-border bg-surface text-ink-soft'
-                    }`}
+                    aria-pressed={discount === d.id}
+                    className="app-chip"
                   >
                     {d.label}
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
 
             {/* Notes */}
-            <input
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Add a note for driver (optional)..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-ink placeholder:text-ink-soft/60 focus:border-orange text-sm"
-            />
+            <label className="form-field">
+              <span className="field-label">Note for your driver</span>
+              <input
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Optional, e.g. wait at the gate"
+                className="app-input"
+              />
+            </label>
 
-            {/* Fare preview */}
             <FarePreview
               estimate={estimate}
               loading={estimateLoading}
@@ -542,16 +549,18 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
               hasPins={Boolean(pickupPosition && destinationPosition)}
             />
 
-            {/* Find button */}
-            {bookingError && <p role="alert" className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{bookingError}</p>}
-            <button
-              onClick={() => void submitRide()}
-              disabled={!canBook}
-              className="btn-primary btn-large w-full disabled:opacity-50"
-            >
-              Find a Tricycle
-            </button>
-            <p className="text-center text-xs text-ink-soft">{bookingHint}</p>
+            {bookingError && <p role="alert" className="notice notice--danger">{bookingError}</p>}
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void submitRide()}
+                disabled={!canBook}
+                className="btn-primary btn-large w-full"
+              >
+                Find a Tricycle
+              </button>
+              <p className="booking-hint">{bookingHint}</p>
+            </div>
           </div>
         )}
       </div>

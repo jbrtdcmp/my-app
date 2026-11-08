@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { createSos, getEmergencyContacts, resolveSos, createTripShare, type EmergencyContact } from '../services/api';
 import { getDeviceLocation, publicTripUrl, shareText } from '../services/platform';
+import { IconShield, IconX } from './Icons';
 
 interface SosControlProps { rideId?: number | null; municipality: string; className?: string; }
 
@@ -52,20 +53,23 @@ export default function SosControl({ rideId = null, municipality, className = ''
   };
 
   return <>
-    <button type="button" onClick={() => { setMessage(''); setOpen(true); }} className={`${className || 'w-full rounded-xl border-2 border-danger/30 bg-danger/5 py-3 text-sm font-semibold text-danger'}${active ? ' sos-trigger--active' : ''}`}>{active ? 'SOS active — view' : 'Emergency / SOS'}</button>
+    <button type="button" onClick={() => { setMessage(''); setOpen(true); }} aria-label={active ? 'SOS active, view emergency help' : undefined} className={`sos-trigger ${className}${active ? ' sos-trigger--active' : ''}`}><IconShield size={18}/>{active ? 'SOS active' : 'Emergency SOS'}</button>
     {message && !open && <p role="status" className="mt-2 text-xs text-danger">{message}</p>}
     {open && <div className="dialog-backdrop fixed inset-0 z-[1000] flex items-end justify-center px-4 md:items-center">
       <section className="dialog-card w-full max-w-md rounded-t-2xl p-5 md:rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="sos-title">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 id="sos-title" className="text-lg font-semibold text-ink">{active ? 'Emergency help' : 'Send an SOS alert?'}</h2>
-          <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="btn-icon"><span aria-hidden="true">×</span></button>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="dialog-icon dialog-icon--danger m-0"><IconShield size={24}/></span>
+            <h2 id="sos-title" className="text-lg font-semibold text-ink">{active ? 'Emergency help' : 'Send an SOS alert?'}</h2>
+          </div>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="btn-icon"><IconX size={18}/></button>
         </div>
         {!active ? <>
           <p className="mb-4 text-sm text-ink-soft">This sends your current location and an alert to PASAKJA admins. If you need immediate help, call local emergency services.</p>
           {locationNotice && <p role="status" className="mb-3 text-xs text-warning">{locationNotice}</p>}
           {message && <p role="status" className="mb-3 text-xs text-danger">{message}</p>}
           <p className="mb-4 rounded-lg bg-danger/5 px-3 py-2 text-xs text-danger">PASAKJA does not replace calling emergency services.</p>
-          <div className="flex gap-3"><button type="button" onClick={() => setOpen(false)} className="btn-secondary flex-1">Cancel</button><button type="button" disabled={busy} onClick={() => void confirmSos()} className="btn-primary flex-1 bg-danger border-danger disabled:opacity-60">{busy ? 'Sending…' : 'Confirm SOS'}</button></div>
+          <div className="flex gap-3"><button type="button" onClick={() => setOpen(false)} className="btn-secondary flex-1">Cancel</button><button type="button" disabled={busy} onClick={() => void confirmSos()} className="btn-danger flex-1">{busy ? 'Sending…' : 'Confirm SOS'}</button></div>
         </> : <>
           <p className="mb-3 text-sm text-ink-soft">Your SOS alert has been sent to PASAKJA admins for {town}.</p>
           <p className="mb-2 text-xs font-semibold uppercase text-ink-soft">Emergency contacts</p>

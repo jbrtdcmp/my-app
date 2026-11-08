@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconChevronRight, IconLogout, IconProfile } from '../components/Icons';
+import { IconLogout, IconProfile } from '../components/Icons';
 import { AppBadge, AppCard, ListRow } from '../components/ui';
 import SosControl from '../components/SosControl';
 import { LANGUAGES } from '../data';
@@ -56,9 +56,9 @@ function ProfileLayout({ role, user, sections, onLogout, children }: {
         </button>
         <input ref={avatarInput} className="auth-file-input" type="file" accept="image/*" onChange={event => chooseAvatar(event.target.files?.[0])}/>
         <div className="min-w-0">
-          <h1>{user?.name || 'Account'}</h1>
+          <h1 className="truncate">{user?.name || 'Account'}</h1>
           <AppBadge className="profile-layout__role">{roleLabel}</AppBadge>
-          <p>{user?.email || user?.phone || 'Profile details'}</p>
+          <p className="truncate">{user?.email || user?.phone || 'Profile details'}</p>
         </div>
       </header>
       {avatarError && <p className="profile-layout__error" role="alert">{avatarError}</p>}
@@ -79,7 +79,7 @@ function ProfileLayout({ role, user, sections, onLogout, children }: {
           </section>
         ))}
         <button type="button" onClick={onLogout} className="profile-layout__logout">
-          <IconLogout size={18}/> Log Out <IconChevronRight size={16}/>
+          <IconLogout size={18}/> Log out
         </button>
       </div>
     </div>

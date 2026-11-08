@@ -49,40 +49,25 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
   const roleLabel = role === 'admin' ? 'Admin Portal' : role === 'driver' ? 'Driver Portal' : 'Passenger Portal';
 
   return (
-    <aside className="w-56 flex-shrink-0 bg-surface border-r border-border flex flex-col h-full">
-      {/* Logo */}
-      <div className="px-6 py-5 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="font-bold text-lg text-ink tracking-tight">PASAKJA</h1>
-            <p className="text-xs text-ink-soft">{roleLabel}</p>
-          </div>
+    <aside className="app-sidebar">
+      <div className="app-sidebar__brand">
+        <span className="brand-mark"><IconDriver size={24}/></span>
+        <div className="min-w-0">
+          <p className="brand-wordmark">PASAKJA</p>
+          <p className="text-xs font-medium text-ink-soft">{roleLabel}</p>
         </div>
       </div>
 
-      {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} className="mx-3 mt-3 flex items-center justify-between gap-2 rounded-xl border border-danger/30 bg-danger/5 px-3 py-2 text-left text-danger">
-        <span className="flex items-center gap-2 text-xs font-semibold"><IconAlerts size={16}/> Active SOS</span>
-        <span className="min-w-5 rounded-full bg-danger px-1.5 text-center text-xs font-semibold text-white">{sosCount}</span>
+      {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} className="app-sidebar__sos">
+        <span className="flex items-center gap-2"><IconAlerts size={16}/> Active SOS</span>
+        <span className="rounded-full bg-danger px-2 text-xs font-bold text-white">{sosCount}</span>
       </button>}
 
-      {/* Nav links */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav className="app-sidebar__nav" aria-label="Main navigation">
         {links.map(({ id, label, icon }) => {
           const Icon = icon ? MENU_ICONS[icon] : undefined;
-          const isActive = activeScreen === id;
           return (
-            <button
-              key={id}
-              onClick={() => onNavigate(id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 relative ${
-                isActive
-                  ? 'bg-orange-dark text-white shadow-btn'
-                  : 'text-ink-soft hover:bg-warm hover:text-ink'
-              }`}
-            >
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r bg-white/80"/>
-              )}
+            <button key={id} type="button" onClick={() => onNavigate(id)} aria-current={activeScreen === id ? 'page' : undefined} className="app-sidebar__link">
               {Icon && <Icon size={20}/>}
               <span>{label}</span>
             </button>
@@ -90,19 +75,17 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
         })}
       </nav>
 
-      {/* Role badge + logout */}
-      <div className="px-4 py-4 border-t border-border space-y-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warm">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-ink">{user?.name ?? 'Account'}</p>
-            <p className="text-xs text-ink-soft capitalize">{role}</p>
+      <div className="app-sidebar__footer">
+        <div className="app-sidebar__account">
+          <span className="avatar avatar--small">{user?.name?.slice(0, 1).toUpperCase() ?? 'P'}</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-ink">{user?.name ?? 'Account'}</p>
+            <p className="text-xs capitalize text-ink-soft">{role}</p>
           </div>
         </div>
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-ink-soft text-sm hover:bg-danger/10 hover:text-danger transition-colors"
-        >
-          Log Out
+        <button type="button" onClick={onLogout} className="app-sidebar__link hover:text-danger">
+          <IconLogout size={20}/>
+          <span>Log out</span>
         </button>
       </div>
     </aside>
@@ -445,10 +428,10 @@ export default function App() {
         />
 
         {/* Desktop location bar */}
-        <div className="hidden md:flex items-center justify-between px-6 py-3 border-b border-border bg-surface">
+        <div className="app-desktop-header hidden md:flex">
           <div className="flex flex-col">
             <h1 className="app-desktop-header__title">{rideHeaderTitle(rideState, activeScreen)}</h1>
-            <span className="text-xs text-ink-soft">CarCanMadCarLan · Surigao del Sur</span>
+            <span className="app-desktop-header__subtitle">CarCanMadCarLan · Surigao del Sur</span>
           </div>
           <div className="app-navigation-bar__actions">
             {role === 'admin' && activeSosCount > 0 && <button type="button" onClick={openAdminSos} aria-label={`${activeSosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconAlerts size={20}/><span className="app-alert-count">{activeSosCount}</span></button>}

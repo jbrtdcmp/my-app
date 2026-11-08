@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconHome, IconLocation, IconMap, IconMegaphone, IconPackage, IconProfile, IconStar, IconWeather } from '../components/Icons';
+import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconHome, IconLocation, IconMap, IconMegaphone, IconPackage, IconProfile, IconSearch, IconShield, IconStar, IconWeather } from '../components/Icons';
 import { DataTable, ErrorState, StatCard as SharedStatCard, StatusBadge } from '../components/ui';
 import { getAdminDrivers, getAdminSos, getAdminSummary, getEmergencyContacts, resolveSos, updateEmergencyContact, verifyDriver, type AdminSummary, type EmergencyContact, type SosEvent } from '../services/api';
 
@@ -11,7 +11,7 @@ const TAB_LABELS: { id: AdminTab; label: string; Icon: React.FC<{ size?: number;
   { id: 'drivers', label: 'Drivers', Icon: IconDriver },
   { id: 'fares', label: 'Fare Zones', Icon: IconMap },
   { id: 'alerts', label: 'Alerts', Icon: IconAlerts },
-  { id: 'sos', label: 'SOS', Icon: IconAlerts },
+  { id: 'sos', label: 'SOS', Icon: IconShield },
 ];
 
 const ALERT_TYPE_CHOICES: { id: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
@@ -61,21 +61,21 @@ function FareZoneEditor() {
     <div className="space-y-3">
       <p className="text-sm text-ink-soft mb-4">Edit base fares per municipality zone. Changes apply immediately to all new bookings.</p>
       {fares.map((f, i) => (
-        <div key={i} className="flex items-center gap-3 bg-surface rounded-xl p-3 border border-border">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-ink">{f.muni} · {f.zone}</p>
+        <div key={i} className="flex items-center gap-3 rounded-xl bg-warm p-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink">{f.muni}</p>
+            <p className="text-xs text-ink-soft">{f.zone}</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-soft">₱</span>
+            <span className="text-sm font-bold text-ink-soft">₱</span>
             <input
               type="number"
               value={f.base}
+              aria-label={`${f.muni} ${f.zone} base fare`}
               onChange={e => setFares(prev => prev.map((x, j) => j === i ? { ...x, base: +e.target.value } : x))}
-              className="w-16 px-2 py-1.5 rounded-lg border-2 border-border text-sm text-ink font-semibold text-center focus:border-orange"
+              className="w-20 text-center font-bold"
             />
-            <button className="text-xs text-orange-dark font-semibold border border-orange rounded-lg px-2.5 py-1.5 hover:bg-orange-light transition-colors">
-              Save
-            </button>
+            <button type="button" className="btn-secondary btn-small">Save</button>
           </div>
         </div>
       ))}
@@ -92,38 +92,32 @@ function AlertComposer() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink-soft">Compose and publish community alerts visible to all PASAKJA users in the selected area.</p>
-      <div>
-        <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Target Area</label>
-        <select value={muni} onChange={e => setMuni(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange">
-          <option value="all">All Municipalities</option>
+      <label className="form-field">
+        <span className="field-label">Target area</span>
+        <select value={muni} onChange={e => setMuni(e.target.value)} className="app-select">
+          <option value="all">All municipalities</option>
           <option>Carrascal</option><option>Cantilan</option>
           <option>Madrid</option><option>Carmen</option><option>Lanuza</option>
         </select>
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Alert Type</label>
-        <div className="flex gap-2 flex-wrap">
+      </label>
+      <div className="form-field">
+        <span className="field-label">Alert type</span>
+        <div className="flex flex-wrap gap-2">
           {ALERT_TYPE_CHOICES.map(({ id, Icon }) => (
-            <button key={id} onClick={() => setType(id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all capitalize ${
-                type === id ? 'border-orange-dark bg-orange-dark text-white' : 'border-border text-ink-soft'
-              }`}>
+            <button key={id} type="button" onClick={() => setType(id)} aria-pressed={type === id} className="app-chip capitalize">
               <Icon size={16}/>{id}
             </button>
           ))}
         </div>
       </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Title</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Alert title..."
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange"/>
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-1 block">Message</label>
-        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Alert message..."
-          className="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-sm focus:border-orange resize-none"/>
-      </div>
+      <label className="form-field">
+        <span className="field-label">Title</span>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Alert title" className="app-input"/>
+      </label>
+      <label className="form-field">
+        <span className="field-label">Message</span>
+        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Alert message" className="app-textarea resize-none"/>
+      </label>
       <button
         className="btn-primary btn-large w-full"
       >
@@ -204,18 +198,17 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
       {/* Header */}
-      <div className="admin-dashboard-header bg-orange wave-bg"
-        style={{ background: 'linear-gradient(135deg, #26211E 0%, #A94C1B 100%)' }}>
+      <div className="admin-dashboard-header">
         <div className="admin-dashboard-header__content">
           <div className="admin-dashboard-header__copy">
-            <h1 className="text-xl font-semibold text-white">Admin Dashboard</h1>
-            <p className="text-white/80 text-sm mt-0.5">CarCanMadCarLan · PASAKJA</p>
+            <h1>Admin dashboard</h1>
+            <p>Carrascal · Cantilan · Madrid · Carmen · Lanuza</p>
           </div>
           <div className="admin-dashboard-header__actions">
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-ink text-xs font-medium hover:bg-warm transition-colors">
+            <button type="button" className="admin-header-button">
               <IconFile size={16}/>PDF
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white text-ink text-xs font-medium hover:bg-warm transition-colors">
+            <button type="button" className="admin-header-button">
               <IconChart size={16}/>Excel
             </button>
           </div>
@@ -223,14 +216,15 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
       </div>
 
       {/* Tabs */}
-      <div className="flex overflow-x-auto bg-surface border-b border-border px-4 py-0">
+      <div className="admin-tabs" role="toolbar" aria-label="Dashboard sections">
         {TAB_LABELS.map(t => (
           <button
             key={t.id}
+            type="button"
+            data-admin-tab={t.id}
+            aria-pressed={tab === t.id}
             onClick={() => { setTab(t.id); onTabChange(t.id); }}
-            className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all ${
-              tab === t.id ? 'border-orange text-orange-dark' : 'border-transparent text-ink-soft hover:text-ink'
-            }`}
+            className="admin-tab"
           >
             <t.Icon size={16}/>
             {t.label}
@@ -245,22 +239,22 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             {summaryError && <ErrorState message={summaryError}/>}
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <SharedStatCard icon={<IconDriver className="text-orange-dark"/>} label="Total Drivers" value={summary?.total_drivers ?? '—'}/>
-              <SharedStatCard icon={<IconProfile className="text-orange-dark"/>} label="Total Passengers" value={summary?.total_passengers ?? '—'}/>
-              <SharedStatCard icon={<IconBookings className="text-warning"/>} label="Active Bookings" value={summary?.active_rides ?? '—'} color="text-warning"/>
-              <SharedStatCard icon={<IconCheckCircle className="text-success"/>} label="Completed Today" value={summary?.completed_today ?? '—'} color="text-success"/>
+              <SharedStatCard icon={<IconDriver size={20}/>} label="Total drivers" value={summary?.total_drivers ?? '—'}/>
+              <SharedStatCard icon={<IconProfile size={20}/>} label="Total passengers" value={summary?.total_passengers ?? '—'}/>
+              <SharedStatCard icon={<IconBookings size={20}/>} label="Active bookings" value={summary?.active_rides ?? '—'}/>
+              <SharedStatCard icon={<IconCheckCircle size={20}/>} label="Completed today" value={summary?.completed_today ?? '—'} color="text-success"/>
             </div>
 
             {/* Municipality comparison */}
-            <div className="bg-surface rounded-2xl border border-border p-5">
-              <h3 className="font-semibold text-base text-ink mb-4">Municipality Overview</h3>
+            <div className="app-card">
+              <h3 className="section-title">Municipality Overview</h3>
               <BarChart data={summary?.by_municipality ?? []}/>
             </div>
 
             {/* Booking status donut-like */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-surface rounded-2xl border border-border p-5">
-                <h3 className="font-semibold text-base text-ink mb-4">Booking Status Today</h3>
+              <div className="app-card">
+                <h3 className="section-title">Booking Status Today</h3>
                 <div className="space-y-3">
                   {[
                     { label: 'Completed', value: summary?.status_today.completed ?? 0, color: 'bg-success' },
@@ -280,8 +274,8 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
                 </div>
               </div>
 
-              <div className="bg-surface rounded-2xl border border-border p-5">
-                <h3 className="font-semibold text-base text-ink mb-4">Drivers on rides, by municipality (7 days)</h3>
+              <div className="app-card">
+                <h3 className="section-title">Drivers on rides, by municipality (7 days)</h3>
                 <div className="space-y-3">
                   {(summary?.by_municipality ?? []).map(m => (
                     <div key={m.name} className="flex items-center gap-3">
@@ -300,8 +294,8 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
 
         {tab === 'analytics' && (
           <div className="space-y-6">
-            <div className="bg-surface rounded-2xl border border-border p-5">
-              <h3 className="font-semibold text-base text-ink mb-1">Rides This Week</h3>
+            <div className="app-card">
+              <h3 className="section-title mb-1">Rides This Week</h3>
               <p className="text-xs text-ink-soft mb-4">Ride requests in the last seven days, grouped by municipality</p>
               {summary?.by_municipality.length ? <BarChart data={summary.by_municipality}/> : <p className="text-sm text-ink-soft">No ride activity for this period.</p>}
             </div>
@@ -309,62 +303,67 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
         )}
 
         {tab === 'drivers' && (
-          <div className="bg-surface rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold text-base text-ink">Driver Management</h3>
-              <input placeholder="Search drivers..." className="px-3 py-1.5 rounded-xl border border-border text-sm focus:border-orange w-40"/>
+          <div className="app-card p-0 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4">
+              <h3 className="section-title m-0">Driver management</h3>
+              <label className="relative min-w-0 flex-1 basis-48">
+                <span className="sr-only">Search drivers</span>
+                <IconSearch size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft"/>
+                <input placeholder="Search drivers" className="app-input pl-8"/>
+              </label>
             </div>
-            {driversError && <ErrorState className="mx-5 my-3" message={driversError}/>}
+            {driversError && <ErrorState className="mx-4 my-3" message={driversError}/>}
             <DataTable columns={driverColumns} rows={drivers} getRowKey={driver => driver.id}/>
             {drivers.length === 0 && <p className="p-4 text-center text-sm text-ink-soft">No driver accounts found.</p>}
-            <div className="px-5 py-3 border-t border-border flex items-center justify-between text-sm text-ink-soft">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-ink-soft">
               <span>{drivers.length} registered drivers</span>
               <div className="flex gap-2">
-                <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">‹ Prev</button>
-                <button className="px-3 py-1.5 rounded-lg border border-orange bg-orange-light text-orange-dark font-medium">1</button>
-                <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">2</button>
-                <button className="px-3 py-1.5 rounded-lg border border-border hover:bg-warm transition-colors">Next ›</button>
+                <button type="button" className="btn-quiet btn-small">Prev</button>
+                <button type="button" className="btn-secondary btn-small" aria-current="page">1</button>
+                <button type="button" className="btn-quiet btn-small">2</button>
+                <button type="button" className="btn-quiet btn-small">Next</button>
               </div>
             </div>
           </div>
         )}
 
         {tab === 'fares' && (
-          <div className="bg-surface rounded-2xl border border-border p-5">
-            <h3 className="font-semibold text-base text-ink mb-1">Fare Zone Editor</h3>
+          <div className="app-card">
+            <h3 className="section-title mb-1">Fare Zone Editor</h3>
             <FareZoneEditor/>
           </div>
         )}
 
         {tab === 'alerts' && (
-          <div className="bg-surface rounded-2xl border border-border p-5">
-            <h3 className="font-semibold text-base text-ink mb-4">Community Alert Composer</h3>
+          <div className="app-card">
+            <h3 className="section-title">Community Alert Composer</h3>
             <AlertComposer/>
           </div>
         )}
 
         {tab === 'sos' && (
           <section className="space-y-3" aria-label="SOS alerts">
-            <div className="flex items-center justify-between"><h2 className="text-lg font-semibold text-ink">Emergency alerts</h2><span className="text-xs text-ink-soft">Refreshes every 5 seconds</span></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="section-title m-0">Emergency alerts</h2><span className="text-xs text-ink-soft">Refreshes every 5 seconds</span></div>
             {sosError && <ErrorState message={sosError}/>}
-            {sosEvents.length === 0 && !sosError && <p className="rounded-xl border border-border bg-surface p-4 text-sm text-ink-soft">No SOS alerts have been sent.</p>}
-            {sosEvents.map(event => <article key={event.id} className="rounded-xl border border-border bg-surface p-4">
+            {sosEvents.length === 0 && !sosError && <p className="app-card text-sm text-ink-soft">No SOS alerts have been sent.</p>}
+            {sosEvents.map(event => <article key={event.id} className={`app-card ${event.status === 'active' ? 'border-danger' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{event.full_name || 'PASAKJA user'} <span className="font-normal capitalize text-ink-soft">· {event.role}</span></p><p className="mt-1 text-xs text-ink-soft">{event.municipality || 'Location not provided'} · {new Date(event.created_at).toLocaleString()}</p></div><StatusBadge status={event.status === 'active' ? 'sos-active' : event.status} label={event.status}/></div>
               {(event.latitude !== null && event.longitude !== null) && <a className="mt-2 inline-block text-sm text-orange-dark underline" href={`https://www.openstreetmap.org/?mlat=${event.latitude}&mlon=${event.longitude}#map=16/${event.latitude}/${event.longitude}`} target="_blank" rel="noreferrer">Open reported location</a>}
               {(event.driver_name || event.plate_number) && <p className="mt-2 text-sm text-ink-soft">Driver: {event.driver_name || '—'}{event.plate_number ? ` · ${event.plate_number}` : ''}</p>}
               {event.status === 'active' && <button type="button" disabled={resolvingSos === event.id} onClick={() => void resolveAlert(event.id)} className="btn-secondary mt-3 px-4 py-2">{resolvingSos === event.id ? 'Updating…' : 'Mark resolved'}</button>}
             </article>)}
-            <section className="mt-6 rounded-xl border border-border bg-surface p-4" aria-label="Emergency contact settings">
-              <h3 className="font-semibold text-ink">Emergency contacts</h3>
-              <p className="mb-3 mt-1 text-xs text-ink-soft">Only save verified local contact numbers. Blank numbers stay unconfigured.</p>
-              <label className="mb-3 block text-xs font-semibold text-ink-soft">Municipality
-                <select value={contactTown} onChange={event => { setContactTown(event.target.value); setContactMessage(''); }} className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink">
+            <section className="app-card mt-6" aria-label="Emergency contact settings">
+              <h3 className="section-title mb-1">Emergency contacts</h3>
+              <p className="mb-4 text-xs text-ink-soft">Only save verified local contact numbers. Blank numbers stay unconfigured.</p>
+              <label className="form-field mb-4">
+                <span className="field-label">Municipality</span>
+                <select value={contactTown} onChange={event => { setContactTown(event.target.value); setContactMessage(''); }} className="app-select">
                   {['Carrascal', 'Cantilan', 'Madrid', 'Carmen', 'Lanuza'].map(town => <option key={town}>{town}</option>)}
                 </select>
               </label>
-              {contacts.map(contact => <div key={contact.id} className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
-                <label className="min-w-36 flex-1 text-sm text-ink">{contact.label}<input type="tel" value={contactPhones[contact.id] ?? ''} onChange={event => setContactPhones(value => ({ ...value, [contact.id]: event.target.value }))} placeholder="Unconfigured" className="mt-1 block w-full rounded-md border border-border px-2 py-1.5 text-sm" /></label>
-                <button type="button" onClick={() => void saveContact(contact)} className="btn-secondary px-3 py-2 text-xs">Save</button>
+              {contacts.map(contact => <div key={contact.id} className="mb-2 flex flex-wrap items-end gap-2 rounded-xl bg-warm p-3">
+                <label className="form-field min-w-0 flex-1 basis-48"><span className="field-label">{contact.label}</span><input type="tel" value={contactPhones[contact.id] ?? ''} onChange={event => setContactPhones(value => ({ ...value, [contact.id]: event.target.value }))} placeholder="Unconfigured" className="app-input" /></label>
+                <button type="button" onClick={() => void saveContact(contact)} className="btn-secondary">Save</button>
               </div>)}
               {contactMessage && <p role="status" className="mt-2 text-xs text-ink-soft">{contactMessage}</p>}
             </section>

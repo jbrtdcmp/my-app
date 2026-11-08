@@ -8,9 +8,10 @@ import type { AppRole } from '../navigation/roleRoutes';
 export default function Alerts({ role }: { role: AppRole }) {
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
-      <div className="px-4 pt-6 pb-4">
-        <h1 className="text-xl font-semibold text-ink mb-1">{role === 'admin' ? 'System alerts' : 'Alerts'}</h1>
-      </div>
+      <header className="page-header">
+        <h1>{role === 'admin' ? 'System alerts' : 'Alerts'}</h1>
+        <p>Ride updates and community notices for your town.</p>
+      </header>
       <div className="px-4 pb-6">
         <EmptyState title="No alerts yet" description="You're all caught up!" icon={<IconAlerts size={24}/>}/>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconMap } from '../components/Icons';
+import { IconBookings, IconChevronDown, IconDriver } from '../components/Icons';
 import { EmptyState, ErrorState, Skeleton, StatusBadge } from '../components/ui';
 import { getRides, rideFare, type ApiRide } from '../services/api';
 
@@ -33,22 +33,22 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
 
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
-      <div className="px-4 pt-6 pb-2">
-        <h1 className="text-xl font-semibold text-ink mb-1">Bookings</h1>
-        <p className="text-sm text-ink-soft">{filtered.length} rides</p>
-      </div>
-      <div className="px-4 py-3 space-y-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+      <header className="page-header">
+        <h1>Your rides</h1>
+        <p>{filtered.length} {filtered.length === 1 ? 'ride' : 'rides'}</p>
+      </header>
+      <div className="px-4 pb-4 space-y-3">
+        <div className="chip-row" aria-label="Filter by status">
           {STATUS_FILTERS.map(filter => (
-            <button key={filter} onClick={() => setStatusFilter(filter)} className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium border-2 transition-all ${statusFilter === filter ? 'border-orange-dark bg-orange-dark text-white' : 'border-border bg-surface text-ink-soft'}`}>
+            <button key={filter} type="button" onClick={() => setStatusFilter(filter)} aria-pressed={statusFilter === filter} className="app-chip">
               {filter}
             </button>
           ))}
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="chip-row" aria-label="Filter by town">
           {MUNI_FILTERS.map(filter => (
-            <button key={filter} onClick={() => setMuniFilter(filter)} className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${muniFilter === filter ? 'border-orange bg-orange-light text-orange-dark' : 'border-border bg-surface text-ink-soft'}`}>
-              {filter}
+            <button key={filter} type="button" onClick={() => setMuniFilter(filter)} aria-pressed={muniFilter === filter} className="app-chip app-chip--soft">
+              {filter === 'All' ? 'All towns' : filter}
             </button>
           ))}
         </div>
@@ -63,8 +63,8 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
           <EmptyState
             title="No rides found"
             description="Try changing your filters to see more rides."
-            icon={<IconMap size={24}/>}
-            action={<button className="btn-secondary" onClick={() => { setStatusFilter('All'); setMuniFilter('All'); }}>Reset filters</button>}
+            icon={<IconBookings size={24}/>}
+            action={<button type="button" className="btn-secondary" onClick={() => { setStatusFilter('All'); setMuniFilter('All'); }}>Reset filters</button>}
           />
         ) : filtered.map(ride => {
           const selected = selectedRide === ride.id;
@@ -74,32 +74,31 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
           const fare = rideFare(ride);
           const distance = ride.fare_distance_km ?? ride.distance_km ?? null;
           return (
-            <article key={ride.id} className={`ride-history-card bg-surface rounded-2xl border p-4 ${selected ? 'ride-history-card--selected' : 'border-border'}`}>
-              <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="ride-history-card__toggle w-full text-left">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-ink-soft mb-1">{new Date(ride.requested_at).toLocaleString()}</p>
-                    <p className="font-medium text-sm text-ink">{ride.municipality}</p>
+            <article key={ride.id} className={`ride-history-card ${selected ? 'ride-history-card--selected' : ''}`}>
+              <button type="button" onClick={() => setSelectedRide(selected ? null : ride.id)} aria-expanded={selected} className="ride-history-card__toggle block w-full text-left">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-orange-soft text-orange-action"><IconDriver size={20}/></span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-ink">{rideType} · {ride.municipality}</p>
+                      <p className="text-xs text-ink-soft">{new Date(ride.requested_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <StatusBadge status={ride.status}/>
-                    <span className="text-xs text-ink-soft bg-warm px-2 py-0.5 rounded-full border border-border">{rideType}</span>
-                  </div>
-                </div>                <div className="flex items-start gap-3 mb-3">
-                  <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-1" aria-hidden="true">
-                    <span className="w-2.5 h-2.5 rounded-full bg-orange"/><span className="w-px h-5 bg-border"/><span className="w-2.5 h-2.5 rounded bg-ink"/>
-                  </div>
-                  <div className="min-w-0 space-y-2">
-                    <p className="text-sm text-ink leading-tight">{ride.pickup_label}</p>
-                    <p className="text-sm text-ink leading-tight">{ride.destination_label}</p>
+                  <StatusBadge status={ride.status}/>
+                </div>
+                <div className="route-line mb-4">
+                  <div className="route-line__rail" aria-hidden="true"><span className="route-dot route-dot--pickup"/><span className="mt-auto route-dot route-dot--destination"/></div>
+                  <div className="route-line__stops">
+                    <p className="route-line__place">{ride.pickup_label}</p>
+                    <p className="route-line__place">{ride.destination_label}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 text-xs text-ink-soft">
-                    <span className="font-semibold text-orange-dark text-base">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
-                    {distance !== null && <><span>·</span><span>{distance} km</span></>}
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+                  <div className="flex items-center gap-2">
+                    <span className="fare-amount">{fare !== null ? `₱${fare}` : 'Fare pending'}</span>
+                    {distance !== null && <span className="meta-pill">{distance} km</span>}
                   </div>
-                  <span className="text-xs text-orange-dark font-medium">{selected ? 'Hide details' : 'Details'}</span>
+                  <span className="flex items-center gap-1 text-sm font-bold text-orange-dark">{selected ? 'Hide' : 'Details'}<IconChevronDown size={16} className={selected ? 'rotate-180' : ''}/></span>
                 </div>
               </button>
               {canTrack && (
@@ -108,9 +107,10 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
                 </button>
               )}
               {selected && (
-                <div className="mt-4 pt-4 border-t border-border animate-fade-in">
-                  <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">Driver</span><span className="font-medium text-ink">{ride.driver_name || 'Not assigned'}</span></div>
-                  <div className="mt-2 flex items-center justify-between text-sm"><span className="text-ink-soft">Payment</span><span className="font-medium text-ink">Cash</span></div>
+                <div className="mt-3 space-y-2 rounded-xl bg-warm p-3 animate-fade-in">
+                  <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">Driver</span><span className="font-bold text-ink">{ride.driver_name || 'Not assigned'}</span></div>
+                  {ride.plate_number && <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">Plate</span><span className="font-bold text-ink">{ride.plate_number}</span></div>}
+                  <div className="flex items-center justify-between text-sm"><span className="text-ink-soft">Payment</span><span className="font-bold text-ink">Cash</span></div>
                 </div>
               )}
             </article>

@@ -1,294 +1,184 @@
+import type { ReactNode } from 'react';
+
 interface IconProps {
   className?: string;
   size?: number;
 }
 
-export function IconChart({ size = 24, className = '' }: IconProps) {
+// Every icon shares one 24px frame with 2px rounded strokes in currentColor,
+// so icons match in weight and take their colour from the surrounding text.
+function Icon({ size = 20, className = '', children }: IconProps & { children: ReactNode }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M4 20V5M4 20H21M8 17v-5M13 17V8M18 17V4"
-        stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round" className={`app-icon ${className}`} aria-hidden="true" focusable="false">
+      {children}
     </svg>
   );
+}
+
+export function IconChart({ size = 24, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17V5"/></Icon>;
 }
 
 export function IconCheck({ size = 20, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M20 6 9 17l-5-5"/></Icon>;
 }
 
 export function IconCheckCircle({ size = 24, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7"/><path d="m8 12 2.5 2.5L16 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><circle cx="12" cy="12" r="9.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/></Icon>;
 }
 
 export function IconAlertCircle({ size = 18, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8"/><path d="M12 7.5v5M12 16.5h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>;
+  return <Icon size={size} className={className}><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5"/><path d="M12 16.5h.01"/></Icon>;
 }
 
 export function IconPackage({ size = 20, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="m4 7 8-4 8 4v10l-8 4-8-4V7Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="m4.5 7.3 7.5 4 7.5-4M12 11.5V21M8 5l8 4" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>;
-}
-
-export function IconCalendar({ size = 20, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.7"/><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M11 21.7a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7Z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="m7.5 4.3 9 5.1"/></Icon>;
 }
 
 export function IconCamera({ size = 24, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><circle cx="12" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.7"/></svg>;
+  return <Icon size={size} className={className}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3.5"/></Icon>;
 }
 
 export function IconBuilding({ size = 20, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M4 21V5l8-2v18M12 9h8v12M2 21h20M7 7h2M7 11h2M7 15h2M15 12h2M15 16h2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></Icon>;
 }
 
 export function IconArrowDown({ size = 18, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M12 4v15M6 13l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-}
-
-export function IconArrowUpDown({ size = 16, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="m7 7 3-3 3 3M10 4v16m7-3-3 3-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M12 5v14"/><path d="m18 13-6 6-6-6"/></Icon>;
 }
 
 export function IconArrowLeft({ size = 20, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M19 12H5m7 7-7-7 7-7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></Icon>;
+}
+
+export function IconArrowRight({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></Icon>;
 }
 
 export function IconMegaphone({ size = 18, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M4 13V9a2 2 0 0 1 2-2h3l9-4v17l-9-4H6a2 2 0 0 1-2-2ZM9 16l2 5h3l-2-6M18 8l3-2M18 14l3 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+  return <Icon size={size} className={className}><path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></Icon>;
 }
 
 export function IconFile({ size = 18, className = '' }: IconProps) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}><path d="M6 3h8l5 5v13H6V3Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="M14 3v6h5M9 13h7M9 17h7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>;
+  return <Icon size={size} className={className}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8"/><path d="M8 17h8"/></Icon>;
 }
 
 export function IconHome({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M3 9.5L12 3L21 9.5V20C21 20.55 20.55 21 20 21H15V15H9V21H4C3.45 21 3 20.55 3 20V9.5Z"
-        stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M15 21v-7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v7"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></Icon>;
 }
 
 export function IconMap({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M3 5L9 3L15 6L21 3V19L15 22L9 19L3 22V5Z"
-        stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M9 3V19M15 6V22" stroke="currentColor" strokeWidth="1.75"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M14.1 5.6a2 2 0 0 0 1.8 0l3.7-1.9A1 1 0 0 1 21 4.6v12.8a1 1 0 0 1-.6.9l-4.5 2.3a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.7 1.9A1 1 0 0 1 3 19.4V6.6a1 1 0 0 1 .6-.9l4.5-2.3a2 2 0 0 1 1.8 0Z"/><path d="M15 5.8v15"/><path d="M9 3.2v15"/></Icon>;
 }
 
+// Ride history: a clock running backwards.
 export function IconBookings({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <rect x="3" y="4" width="18" height="17" rx="2" stroke="currentColor" strokeWidth="1.75"/>
-      <path d="M3 9H21M8 2V6M16 2V6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-      <path d="M7 13H12M7 17H16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M3 12a9 9 0 1 0 9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></Icon>;
 }
 
 export function IconAlerts({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M5 10C5 6.69 7.69 4 11 4C14.31 4 17 6.69 17 10V15L19 17H3L5 15V10Z"
-        stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M9 17C9 18.1 9.9 19 11 19C12.1 19 13 18.1 13 17" stroke="currentColor" strokeWidth="1.75"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M10.3 21a2 2 0 0 0 3.4 0"/><path d="M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.7C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 6-2.7 7.3"/></Icon>;
 }
 
 export function IconProfile({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.75"/>
-      <path d="M4 20C4 16.69 7.58 14 12 14C16.42 14 20 16.69 20 20"
-        stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.5"/><path d="M6.2 18.6a6.5 6.5 0 0 1 11.6 0"/></Icon>;
 }
 
 export function IconLocation({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M10 2C7.24 2 5 4.24 5 7C5 11 10 18 10 18C10 18 15 11 15 7C15 4.24 12.76 2 10 2Z"
-        stroke="currentColor" strokeWidth="1.8" fill="none"/>
-      <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M20 10c0 5-5.5 10.2-7.4 11.8a1 1 0 0 1-1.2 0C9.5 20.2 4 15 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></Icon>;
 }
 
 export function IconDestination({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.8"/>
-      <rect x="7" y="7" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M5 22V4"/><path d="M5 15s1.2-1 4-1 4.6 2 7.2 2S20 15 20 15V4s-1.2 1-3.8 1S11.8 3 9 3 5 4 5 4"/></Icon>;
 }
 
 export function IconStar({ size = 16, className = '', filled = false }: IconProps & { filled?: boolean }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" className={className}>
-      <path d="M8 2L9.65 5.92L14 6.36L10.8 9.24L11.77 13.5L8 11.35L4.23 13.5L5.2 9.24L2 6.36L6.35 5.92L8 2Z"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`app-icon ${className}`} aria-hidden="true" focusable="false"><path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.5 6.3-.9Z"/></svg>;
 }
 
 export function IconSearch({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.75"/>
-      <path d="M13.5 13.5L17 17" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><circle cx="11" cy="11" r="7.5"/><path d="m20.5 20.5-4.2-4.2"/></Icon>;
 }
 
 export function IconChevronDown({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="m6 9 6 6 6-6"/></Icon>;
 }
 
 export function IconChevronRight({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="m9 18 6-6-6-6"/></Icon>;
 }
 
 export function IconX({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></Icon>;
 }
 
 export function IconPhone({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M6.5 3H4C3.45 3 3 3.45 3 4C3 12.28 9.72 19 18 19C18.55 19 19 18.55 19 18V15.5C19 14.95 18.55 14.5 18 14.5C16.76 14.5 15.56 14.28 14.46 13.88C14.22 13.8 13.96 13.85 13.77 14.04L11.82 15.99C9.18 14.64 7.36 12.82 6.01 10.18L7.96 8.23C8.15 8.04 8.2 7.78 8.12 7.54C7.72 6.44 7.5 5.24 7.5 4C7.5 3.45 7.05 3 6.5 3Z"
-        stroke="currentColor" strokeWidth="1.8" fill="none"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2.1Z"/></Icon>;
 }
 
 export function IconShare({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <circle cx="16" cy="4" r="2" stroke="currentColor" strokeWidth="1.8"/>
-      <circle cx="4" cy="10" r="2" stroke="currentColor" strokeWidth="1.8"/>
-      <circle cx="16" cy="16" r="2" stroke="currentColor" strokeWidth="1.8"/>
-      <path d="M6 9L14 5M6 11L14 15" stroke="currentColor" strokeWidth="1.8"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/></Icon>;
 }
 
 export function IconSignal({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M3 17V13M7 17V9M11 17V5M15 17V1" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" opacity="0.4"/>
-      <path d="M3 17V13M7 17V9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M3 20h.01"/><path d="M8 20v-4"/><path d="M13 20v-8"/><path d="M18 20V8" opacity=".35"/></Icon>;
 }
 
 export function IconWallet({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <rect x="2" y="5" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.8"/>
-      <path d="M2 9H18" stroke="currentColor" strokeWidth="1.8"/>
-      <circle cx="15" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.6"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></Icon>;
 }
 
-export function IconTODA({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 18 18" fill="none" className={className}>
-      <path d="M9 1L10.5 5.5H15.5L11.5 8L13 12.5L9 10L5 12.5L6.5 8L2.5 5.5H7.5L9 1Z"
-        stroke="#D86F2F" strokeWidth="1.2" strokeLinejoin="round"/>
-      <path d="M6.5 9L8 10.5L11.5 7" stroke="#D86F2F" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-
-export function IconPickupPin({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 40" fill="none" className={className}>
-      <path d="M16 36S27 24 27 14A11 11 0 1 0 5 14C5 24 16 36 16 36Z" stroke="#D86F2F" strokeWidth="1.8"/>
-      <circle cx="16" cy="14" r="4" stroke="#D86F2F" strokeWidth="1.8"/>
-    </svg>
-  );
-}
-
-export function IconDropPin({ className = '' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 40" fill="none" className={className}>
-      <path d="M16 36S27 24 27 14A11 11 0 1 0 5 14C5 24 16 36 16 36Z" stroke="#26211E" strokeWidth="1.8"/>
-      <circle cx="16" cy="14" r="4" stroke="#26211E" strokeWidth="1.8"/>
-    </svg>
-  );
+// Verified badge used for TODA-approved drivers.
+export function IconTODA({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M3.9 8.6a4 4 0 0 1 4.7-4.7 4 4 0 0 1 6.8 0 4 4 0 0 1 4.7 4.7 4 4 0 0 1 0 6.8 4 4 0 0 1-4.7 4.7 4 4 0 0 1-6.8 0 4 4 0 0 1-4.7-4.7 4 4 0 0 1 0-6.8Z"/><path d="m9 12 2 2 4-4"/></Icon>;
 }
 
 export function IconMenu({ size = 24, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M3 6H21M3 12H21M3 18H21" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></Icon>;
 }
 
 export function IconLogout({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M8 3H4C3.45 3 3 3.45 3 4V16C3 16.55 3.45 17 4 17H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-      <path d="M13 7L17 10M17 10L13 13M17 10H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></Icon>;
 }
 
 export function IconSettings({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
-      <path d="M9.7 3h4.6l.7 2.2 1.5.9 2.2-.7 2.3 4-1.6 1.6v1.8l1.6 1.6-2.3 4-2.2-.7-1.5.9-.7 2.2H9.7L9 18.6l-1.5-.9-2.2.7-2.3-4 1.6-1.6V11l-1.6-1.6 2.3-4 2.2.7L9 5.2 9.7 3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.8l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.8v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></Icon>;
 }
 
 export function IconWeather({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <path d="M5 14C3.34 14 2 12.66 2 11C2 9.34 3.34 8 5 8C5.19 8 5.38 8.02 5.56 8.05C6.2 6.27 7.95 5 10 5C12.76 5 15 7.24 15 10C16.66 10 18 11.34 18 13C18 14.66 16.66 16 15 16H5C5 16 5 14 5 14Z"
-        stroke="currentColor" strokeWidth="1.8" fill="none"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9Z"/></Icon>;
 }
 
 export function IconAdmin({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <rect x="2" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/>
-      <rect x="11" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/>
-      <rect x="2" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/>
-      <rect x="11" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></Icon>;
 }
 
+// A covered three-wheeler seen from the side, simple enough to read at 16px.
 export function IconDriver({ size = 20, className = '' }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
-      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.8"/>
-      <path d="M4 18C4 14.69 6.69 12 10 12C13.31 12 16 14.69 16 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-    </svg>
-  );
+  return <Icon size={size} className={className}><path d="M4 16.5V10a5 5 0 0 1 5-5h4.2a2 2 0 0 1 1.8 1.1L18 12h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><path d="M7.5 12V9.5a1 1 0 0 1 1-1H13l1.8 3.5Z"/><path d="M4 16.5h1.5"/><path d="M10.5 16.5h3"/><path d="M18.5 16.5H21"/><circle cx="8" cy="16.5" r="2.5"/><circle cx="16" cy="16.5" r="2.5"/></Icon>;
+}
+
+export function IconShield({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></Icon>;
+}
+
+export function IconClock({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3 2"/></Icon>;
+}
+
+export function IconUsers({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></Icon>;
+}
+
+export function IconKey({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></Icon>;
+}
+
+export function IconNavigation({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="m3 11 19-9-9 19-2-8Z"/></Icon>;
+}
+
+export function IconTag({ size = 20, className = '' }: IconProps) {
+  return <Icon size={size} className={className}><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z"/><circle cx="7.5" cy="7.5" r="1"/></Icon>;
 }

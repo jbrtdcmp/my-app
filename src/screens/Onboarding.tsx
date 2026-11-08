@@ -1,191 +1,210 @@
-import { useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { IconArrowRight, IconDriver, IconLocation, IconShield, IconTag } from '../components/Icons';
 
 interface OnboardingProps {
   onComplete: () => void;
 }
 
-const SLIDES = [
+const SLIDES: { eyebrow: string; eyebrowIcon: ReactNode; title: string; description: string; art: ReactNode }[] = [
   {
-    id: 1,
-    title: 'Book a Tricycle in Seconds',
-    subtitle: 'Where to?',
-    description: 'Find a TODA-verified tricycle near you in Carrascal, Cantilan, Madrid, Carmen, or Lanuza.',
-    illustrationBg: 'from-orange to-sunset',
+    eyebrow: 'Book in seconds',
+    eyebrowIcon: <IconLocation size={14}/>,
+    title: 'Your tricycle, just a tap away',
+    description: 'Book a TODA-verified tricycle anywhere in Carrascal, Cantilan, Madrid, Carmen and Lanuza.',
+    art: <BookingArt/>,
   },
   {
-    id: 2,
-    title: 'Know Your Fare',
-    subtitle: 'Know Your Fare First',
-    description: 'See the fare estimate before you book, with a clear base fare and distance breakdown.',
-    illustrationBg: 'from-orange-dark to-orange',
+    eyebrow: 'Fixed fares',
+    eyebrowIcon: <IconTag size={14}/>,
+    title: 'Know your fare before you ride',
+    description: 'See the full fare up front: a base fare plus distance. No surge pricing, and you pay the driver in cash.',
+    art: <FareArt/>,
   },
   {
-    id: 3,
-    title: 'Safe and Reliable',
-    subtitle: 'Your Own Local TODA',
-    description: 'Every driver is TODA-verified with plate and body number visible. Share your trip link with someone you trust.',
-    illustrationBg: 'from-ink to-ink-soft',
+    eyebrow: 'Ride safe',
+    eyebrowIcon: <IconShield size={14}/>,
+    title: 'Verified drivers, shared trips',
+    description: 'Every driver is TODA-verified, with plate and body number shown. Share your live trip with someone you trust.',
+    art: <SafetyArt/>,
   },
 ];
 
-function CoastalIllustration({ slide }: { slide: number }) {
-  const colors = [
-    { sky: '#FFF3EA', sea: '#B8D4E3', land: '#e8ddd0', road: '#d4c4b4' },
-    { sky: '#FCE9DC', sea: '#9FC4D8', land: '#ddd0c0', road: '#c8b8a8' },
-    { sky: '#FFFAF6', sea: '#B8D4E3', land: '#e8ddd0', road: '#d4c4b4' },
-  ];
-  const c = colors[slide - 1];
+function Backdrop() {
+  return <>
+    <circle cx="160" cy="150" r="132" fill="#FFF4EC"/>
+    <circle cx="160" cy="150" r="98" fill="#FCE9DC"/>
+    <circle cx="44" cy="64" r="6" fill="#F2A65A"/>
+    <circle cx="282" cy="236" r="8" fill="#F2A65A" opacity=".6"/>
+    <circle cx="276" cy="58" r="4" fill="#D86F2F" opacity=".5"/>
+  </>;
+}
 
+// A side-view tricycle: covered sidecar, motorcycle front, two wheels.
+function Tricycle({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
-    <svg viewBox="0 0 390 280" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
-      {/* Sky */}
-      <rect x="0" y="0" width="390" height="200" fill={c.sky}/>
+    <g transform={`translate(${x} ${y}) scale(${scale})`}>
+      <ellipse cx="68" cy="96" rx="70" ry="6" fill="#1E1A17" opacity=".12"/>
+      <rect x="2" y="12" width="92" height="11" rx="5.5" fill="#A94C1B"/>
+      <path d="M8 74V34a12 12 0 0 1 12-12h58l14 28v24Z" fill="#D86F2F"/>
+      <path d="M22 30h48l10 20H22Z" fill="#FFF4EC"/>
+      <path d="M46 30v20" stroke="#D86F2F" strokeWidth="4"/>
+      <path d="M90 50h26l14 24H90Z" fill="#BF531A"/>
+      <path d="M118 34l10 44" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
+      <path d="M112 34h14" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
+      <circle cx="130" cy="52" r="5" fill="#F2A65A"/>
+      <rect x="6" y="68" width="124" height="9" rx="4.5" fill="#A94C1B"/>
+      <circle cx="38" cy="80" r="15" fill="#1E1A17"/>
+      <circle cx="38" cy="80" r="6" fill="#FFF4EC"/>
+      <circle cx="122" cy="80" r="15" fill="#1E1A17"/>
+      <circle cx="122" cy="80" r="6" fill="#FFF4EC"/>
+    </g>
+  );
+}
 
-      {/* Sun */}
-      <circle cx="320" cy="60" r="30" fill="#F2A65A" opacity="0.4"/>
-      <circle cx="320" cy="60" r="20" fill="#F2A65A" opacity="0.7"/>
-
-      {/* Clouds */}
-      <ellipse cx="80" cy="50" rx="35" ry="18" fill="white" opacity="0.8"/>
-      <ellipse cx="110" cy="45" rx="30" ry="15" fill="white" opacity="0.9"/>
-      <ellipse cx="55" cy="55" rx="25" ry="14" fill="white" opacity="0.7"/>
-
-      <ellipse cx="250" cy="35" rx="28" ry="14" fill="white" opacity="0.6"/>
-      <ellipse cx="275" cy="30" rx="22" ry="12" fill="white" opacity="0.7"/>
-
-      {/* Sea / water */}
-      <path d="M0 190 Q100 180 200 190 Q300 200 390 190 L390 280 L0 280Z" fill={c.sea}/>
-      {/* Wave lines */}
-      <path d="M0 200 Q50 195 100 200 Q150 205 200 200 Q250 195 300 200 Q350 205 390 200"
-        stroke="white" strokeWidth="2" fill="none" opacity="0.5"/>
-      <path d="M0 215 Q60 210 120 215 Q180 220 240 215 Q300 210 390 215"
-        stroke="white" strokeWidth="1.5" fill="none" opacity="0.4"/>
-
-      {/* Land / road */}
-      <path d="M0 175 Q100 170 200 175 Q300 180 390 175 L390 200 L0 200Z" fill={c.land}/>
-
-      {/* Road */}
-      <path d="M80 200 L80 175 L310 175 L310 200Z" fill={c.road}/>
-      <path d="M195 175 L195 200" stroke="white" strokeWidth="2" strokeDasharray="8 6"/>
-
-      {/* Palm trees */}
-      <g transform="translate(30, 130)">
-        <path d="M10 70 L10 20" stroke="#5a4a3a" strokeWidth="4" strokeLinecap="round"/>
-        <path d="M10 20 C10 20 -20 10 -25 -5 C-18 5 0 15 10 20Z" fill="#568570"/>
-        <path d="M10 20 C10 20 35 5 38 -8 C30 5 12 15 10 20Z" fill="#568570"/>
-        <path d="M10 20 C10 20 -5 0 0 -18 C2 -5 8 10 10 20Z" fill="#568570"/>
-        <path d="M10 20 C10 20 22 2 30 -10 C22 3 12 12 10 20Z" fill="#568570" opacity="0.8"/>
+function BookingArt() {
+  return (
+    <svg viewBox="0 0 320 300" role="img" aria-label="A phone showing a booked tricycle route">
+      <Backdrop/>
+      <rect x="112" y="30" width="116" height="216" rx="24" fill="#1E1A17"/>
+      <rect x="118" y="38" width="104" height="200" rx="19" fill="#fff"/>
+      <path d="M118 57a19 19 0 0 1 19-19h66a19 19 0 0 1 19 19v99H118Z" fill="#E9EFEC"/>
+      <path d="M118 128c30-12 52 8 104-24" stroke="#fff" strokeWidth="9" fill="none"/>
+      <path d="M160 38v118" stroke="#fff" strokeWidth="9"/>
+      <path d="M140 140c18-22 30-40 52-62" stroke="#BF531A" strokeWidth="3" strokeDasharray="6 5" strokeLinecap="round" fill="none"/>
+      <circle cx="140" cy="140" r="7" fill="#2F7A5A" stroke="#fff" strokeWidth="3"/>
+      <path d="M192 52c-8 0-14 6-14 14 0 10 14 22 14 22s14-12 14-22c0-8-6-14-14-14Z" fill="#BF531A"/>
+      <circle cx="192" cy="66" r="5" fill="#fff"/>
+      <rect x="128" y="168" width="84" height="30" rx="10" fill="#FFF4EC"/>
+      <rect x="136" y="176" width="44" height="5" rx="2.5" fill="#D86F2F"/>
+      <rect x="136" y="186" width="62" height="5" rx="2.5" fill="#E4DCD4"/>
+      <rect x="128" y="206" width="84" height="22" rx="11" fill="#BF531A"/>
+      <rect x="150" y="215" width="40" height="4" rx="2" fill="#fff"/>
+      <g>
+        <rect x="214" y="96" width="88" height="34" rx="17" fill="#fff" stroke="#ECE6E0"/>
+        <circle cx="232" cy="113" r="9" fill="#E8F5EE"/>
+        <path d="M232 108v5l3 2" stroke="#2F7A5A" strokeWidth="2" strokeLinecap="round" fill="none"/>
+        <text x="246" y="117" fontSize="11" fontWeight="700" fill="#1E1A17">2 min away</text>
       </g>
-      <g transform="translate(340, 120)">
-        <path d="M10 80 Q8 50 12 20" stroke="#5a4a3a" strokeWidth="3.5" strokeLinecap="round"/>
-        <path d="M11 20 C11 20 -15 8 -20 -5 C-12 6 2 14 11 20Z" fill="#568570"/>
-        <path d="M11 20 C11 20 32 5 34 -8 C26 4 14 13 11 20Z" fill="#568570"/>
-        <path d="M11 20 C11 20 -2 -2 4 -16 C4 -3 8 10 11 20Z" fill="#568570"/>
-      </g>
+      <Tricycle x={22} y={176} scale={0.92}/>
+    </svg>
+  );
+}
 
-      {/* Tricycle on road */}
-      {slide === 1 && (
-        <g transform="translate(155, 158)">
-          <rect x="0" y="8" width="18" height="11" rx="3" fill="#D86F2F"/>
-          <rect x="16" y="4" width="28" height="14" rx="3" fill="#D86F2F"/>
-          <rect x="18" y="6" width="14" height="9" rx="2" fill="white" opacity="0.25"/>
-          <circle cx="7" cy="21" r="5" stroke="#26211E" strokeWidth="1.8" fill="white"/>
-          <circle cx="7" cy="21" r="2" fill="#26211E"/>
-          <circle cx="38" cy="20" r="5" stroke="#26211E" strokeWidth="1.8" fill="white"/>
-          <circle cx="38" cy="20" r="2" fill="#26211E"/>
-        </g>
-      )}
+// Sample 5 km fare using the seeded ₱30 base (includes 1 km) + ₱5/km.
+function FareArt() {
+  return (
+    <svg viewBox="0 0 320 300" role="img" aria-label="A sample fare receipt: ₱30 base including 1 km, ₱20 for the next 4 km, ₱50 total">
+      <Backdrop/>
+      <rect x="78" y="40" width="164" height="212" rx="20" fill="#fff" stroke="#ECE6E0"/>
+      <path d="M78 60a20 20 0 0 1 20-20h124a20 20 0 0 1 20 20v38H78Z" fill="#BF531A"/>
+      <text x="96" y="68" fontSize="14" fontWeight="800" fill="#fff">Sample fare</text>
+      <text x="96" y="86" fontSize="10.5" fontWeight="600" fill="#fff" opacity=".9">5 km · No surge pricing</text>
+      <text x="96" y="126" fontSize="11.5" fontWeight="600" fill="#6B625B">Base · first 1 km</text>
+      <text x="224" y="126" fontSize="12.5" fontWeight="800" fill="#1E1A17" textAnchor="end">₱30</text>
+      <text x="96" y="154" fontSize="11.5" fontWeight="600" fill="#6B625B">Next 4 km</text>
+      <text x="224" y="154" fontSize="12.5" fontWeight="800" fill="#1E1A17" textAnchor="end">₱20</text>
+      <path d="M96 176h128" stroke="#DDD5CD" strokeWidth="1.5" strokeDasharray="4 4"/>
+      <text x="96" y="210" fontSize="13" fontWeight="800" fill="#1E1A17">Total</text>
+      <text x="224" y="212" fontSize="26" fontWeight="800" fill="#BF531A" textAnchor="end">₱50</text>
+      <text x="96" y="234" fontSize="10" fontWeight="600" fill="#6B625B">Pay your driver in cash</text>
+      <circle cx="262" cy="200" r="16" fill="#F2A65A" opacity=".7"/>
+      <circle cx="252" cy="226" r="24" fill="#F2A65A" stroke="#D86F2F" strokeWidth="3"/>
+      <text x="252" y="234" fontSize="22" fontWeight="800" fill="#fff" textAnchor="middle">₱</text>
+      <circle cx="74" cy="226" r="20" fill="#2F7A5A"/>
+      <path d="m65 226 6 6 12-12" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    </svg>
+  );
+}
 
-      {/* Sample 5 km fare for slide 2, using the seeded ₱30 base (includes 1 km) + ₱5/km */}
-      {slide === 2 && (
-        <g transform="translate(120, 100)">
-          <rect x="0" y="0" width="150" height="90" rx="12" fill="white" opacity="0.95"/>
-          <rect x="0" y="0" width="150" height="30" rx="12" fill="#A94C1B"/>
-          <rect x="0" y="22" width="150" height="8" rx="0" fill="#A94C1B"/>
-          <text x="12" y="20" fontFamily="Poppins" fontSize="11" fontWeight="600" fill="white">Sample Fare</text>
-          <text x="12" y="48" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Base (includes 1 km)</text>
-          <text x="123" y="48" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱30</text>
-          <text x="12" y="64" fontFamily="Poppins" fontSize="9" fill="#7A6F68">Next 4 km</text>
-          <text x="123" y="64" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">₱20</text>
-          <line x1="12" y1="76" x2="138" y2="76" stroke="#DED5CD" strokeWidth="1"/>
-          <text x="12" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#26211E">Total</text>
-          <text x="116" y="87" fontFamily="Poppins" fontSize="10" fontWeight="700" fill="#A94C1B">₱50</text>
-        </g>
-      )}
-
-      {/* Safety illustration for slide 3 */}
-      {slide === 3 && (
-        <g transform="translate(140, 100)">
-          <rect x="0" y="0" width="110" height="90" rx="12" fill="white" opacity="0.95"/>
-          <circle cx="55" cy="30" r="20" fill="#ECF7F2"/>
-          <path d="M55 12L58 22H69L61 28L64 38L55 32L46 38L49 28L41 22H52L55 12Z"
-            fill="#D86F2F"/>
-          <text x="55" y="62" textAnchor="middle" fontFamily="Poppins" fontSize="9" fontWeight="600" fill="#26211E">TODA Verified</text>
-          <text x="55" y="74" textAnchor="middle" fontFamily="Poppins" fontSize="8" fill="#7A6F68">SDS-1234 · CRL-042</text>
-          <text x="55" y="86" textAnchor="middle" fontFamily="Poppins" fontSize="7.5" fill="#568570">Yellow & Blue</text>
-        </g>
-      )}
+function SafetyArt() {
+  return (
+    <svg viewBox="0 0 320 300" role="img" aria-label="A TODA driver ID card with a verified badge and a safety shield">
+      <Backdrop/>
+      <rect x="54" y="96" width="212" height="132" rx="20" fill="#fff" stroke="#ECE6E0"/>
+      <path d="M54 116a20 20 0 0 1 20-20h172a20 20 0 0 1 20 20v14H54Z" fill="#FCE9DC"/>
+      <text x="74" y="119" fontSize="10.5" fontWeight="800" fill="#A94C1B" letterSpacing=".08em">TODA DRIVER ID</text>
+      <circle cx="100" cy="174" r="26" fill="#E07A35"/>
+      <circle cx="100" cy="166" r="9.5" fill="#fff"/>
+      <path d="M83 192a17 13 0 0 1 34 0Z" fill="#fff"/>
+      <text x="138" y="160" fontSize="13" fontWeight="800" fill="#1E1A17">Verified driver</text>
+      <text x="138" y="178" fontSize="10.5" fontWeight="600" fill="#6B625B">Plate SDS-1234 · CRL-042</text>
+      <rect x="138" y="188" width="92" height="22" rx="11" fill="#E8F5EE"/>
+      <circle cx="151" cy="199" r="5" fill="#2F7A5A"/>
+      <text x="161" y="203" fontSize="10" fontWeight="800" fill="#2F7A5A">TODA verified</text>
+      <path d="M242 34 272 46v24c0 20-13 33-30 40-17-7-30-20-30-40V46Z" fill="#BF531A"/>
+      <path d="m229 71 9 9 17-18" stroke="#fff" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="70" cy="244" r="22" fill="#fff" stroke="#ECE6E0"/>
+      <circle cx="78" cy="236" r="4" fill="none" stroke="#BF531A" strokeWidth="2.5"/>
+      <circle cx="62" cy="244" r="4" fill="none" stroke="#BF531A" strokeWidth="2.5"/>
+      <circle cx="78" cy="252" r="4" fill="none" stroke="#BF531A" strokeWidth="2.5"/>
+      <path d="m65.5 242 9-4M65.5 246l9 4" stroke="#BF531A" strokeWidth="2.5" strokeLinecap="round"/>
+      <text x="100" y="249" fontSize="11" fontWeight="700" fill="#1E1A17">Live trip link shared</text>
     </svg>
   );
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
   const [current, setCurrent] = useState(0);
-
-  const goNext = () => {
-    if (current < SLIDES.length - 1) setCurrent(current + 1);
-    else onComplete();
-  };
-
+  const swipeStart = useRef<number | null>(null);
   const slide = SLIDES[current];
+  const isLast = current === SLIDES.length - 1;
+
+  const goNext = () => (isLast ? onComplete() : setCurrent(current + 1));
+  const goPrevious = () => setCurrent(Math.max(0, current - 1));
 
   return (
-    <div className="min-h-screen bg-warm flex flex-col" style={{ background: '#FFFAF6' }}>
-      {/* Illustration area */}
-      <div className="onboarding-visual relative flex-1 overflow-hidden">
-        <CoastalIllustration slide={slide.id}/>
-        {/* Skip button */}
-        <button
-          onClick={onComplete}
-          className="onboarding-skip absolute top-4 right-4 text-sm font-medium text-ink bg-white/95 backdrop-blur-sm px-4 py-1.5 rounded-full border border-border/50"
-        >
-          Skip
-        </button>
-        {/* Logo */}
-        <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full border border-border/50 bg-white/85 px-3 py-1.5 backdrop-blur-sm">
-          <span className="font-bold text-ink text-base tracking-tight">PASAKJA</span>
+    <main className="onboarding">
+      <header className="onboarding__top">
+        <div className="onboarding__brand">
+          <span className="brand-mark brand-mark--small"><IconDriver size={20}/></span>
+          <span className="brand-wordmark">PASAKJA</span>
         </div>
-      </div>
+        <button type="button" onClick={onComplete} className="onboarding-skip">Skip</button>
+      </header>
 
-      {/* Content */}
-      <div className="bg-surface rounded-t-3xl -mt-6 flex-none px-6 pt-8 pb-8 flex flex-col gap-6">
-        {/* Dots */}
-        <div className="flex gap-2 justify-center">
-          {SLIDES.map((_, i) => (
-            <div
-              key={i}
-              onClick={() => setCurrent(i)}
-              className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                i === current ? 'w-8 bg-orange' : 'w-2 bg-border'
-              }`}
-            />
-          ))}
-        </div>
+      <section
+        className="onboarding__visual"
+        aria-roledescription="carousel"
+        aria-label="Introduction"
+        onPointerDown={event => { swipeStart.current = event.clientX; }}
+        onPointerUp={event => {
+          if (swipeStart.current === null) return;
+          const distance = event.clientX - swipeStart.current;
+          swipeStart.current = null;
+          if (distance < -48) goNext();
+          if (distance > 48) goPrevious();
+        }}
+        onPointerCancel={() => { swipeStart.current = null; }}
+      >
+        <div key={current} className="onboarding__art">{slide.art}</div>
+      </section>
 
-        <div className="text-center space-y-2">
-          <p className="text-sm font-medium text-orange-dark tracking-wide uppercase">{slide.subtitle}</p>
-          <h2 className="text-2xl font-semibold text-ink leading-snug">{slide.title}</h2>
-          <p className="text-ink-soft text-sm leading-relaxed">{slide.description}</p>
+      <section className="onboarding__panel">
+        <div key={current} className="onboarding__copy" aria-live="polite">
+          <span className="onboarding__eyebrow">{slide.eyebrowIcon}{slide.eyebrow}</span>
+          <h1>{slide.title}</h1>
+          <p>{slide.description}</p>
         </div>
 
-        <button
-          onClick={goNext}
-          className="btn-primary btn-large w-full"
-        >
-          {current < SLIDES.length - 1 ? 'Next' : 'Get Started'}
-        </button>
-
-      </div>
-    </div>
+        <div className="onboarding__controls">
+          <div className="onboarding__dots">
+            {SLIDES.map((item, index) => (
+              <button
+                key={item.title}
+                type="button"
+                className="onboarding-dot"
+                aria-label={`Go to slide ${index + 1} of ${SLIDES.length}`}
+                aria-current={index === current ? 'step' : undefined}
+                onClick={() => setCurrent(index)}
+              />
+            ))}
+          </div>
+          <button type="button" onClick={goNext} className="btn-primary btn-large onboarding__next">
+            {isLast ? 'Get started' : 'Next'}
+            <IconArrowRight size={20}/>
+          </button>
+        </div>
+      </section>
+    </main>
   );
 }

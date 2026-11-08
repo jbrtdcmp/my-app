@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   IconAlertCircle,
+  IconArrowLeft,
   IconCamera,
   IconCheck,
   IconDriver,
@@ -8,7 +9,7 @@ import {
   IconX,
 } from '../components/Icons';
 import type { AuthPayload } from '../services/api';
-import { AppButton, AppInput, AppSelect, FormField, Screen, Stack } from '../components/ui';
+import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
 type Role = 'passenger' | 'driver';
 type AuthMode = 'login' | 'register';
@@ -28,21 +29,31 @@ function AuthLayout({ mode, onBack, children }: { mode: AuthMode; onBack?: () =>
   const title = mode === 'login' ? 'Welcome back' : 'Create your account';
   const subtitle = mode === 'login' ? 'Sign in to book or manage your rides.' : 'Join PASAKJA to book or provide local rides.';
   return (
-    <Screen className="auth-screen">
-      <section className={mode === 'register' ? 'auth-form-shell auth-form-shell--register' : 'auth-form-shell'}>
-        <header className="auth-heading">
+    <main className="auth-screen">
+      <div className="auth-hero">
+        <div className="auth-hero__inner">
           {onBack && (
             <button type="button" className="auth-back-button" aria-label="Back to onboarding" onClick={onBack}>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
+              <IconArrowLeft size={20}/>
             </button>
           )}
-          <div className="auth-logo-mark" aria-hidden="true">P</div>
+          <div className="auth-hero__brand">
+            <span className="auth-hero__mark" aria-hidden="true"><IconDriver size={24}/></span>
+            <div>
+              <p className="auth-hero__name">PASAKJA</p>
+              <p className="auth-hero__tagline">Tricycle rides across Surigao del Sur</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section className={mode === 'register' ? 'auth-form-shell auth-form-shell--register' : 'auth-form-shell'}>
+        <header className="auth-heading">
           <h1>{title}</h1>
           <p>{subtitle}</p>
         </header>
         {children}
       </section>
-    </Screen>
+    </main>
   );
 }
 
@@ -237,7 +248,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
       <form className="auth-form-card" noValidate onSubmit={event => { event.preventDefault(); void submit(); }}>
         {mode === 'register' && (
           <fieldset className="auth-role-field">
-            <legend className="auth-fieldset-label">I am a...</legend>
+            <legend className="auth-fieldset-label">I want to sign up as</legend>
             <div className="auth-role-options" role="radiogroup" aria-label="Account type">
               {(['passenger', 'driver'] as Role[]).map(selectedRole => (
                 <label key={selectedRole} className={`auth-role-option${role === selectedRole ? ' auth-role-option--selected' : ''}`}>
@@ -260,10 +271,10 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
                       });
                     }}
                   />
-                  {selectedRole === 'passenger' ? <IconProfile size={20}/> : <IconDriver size={20}/>}
+                  <span className="auth-role-option__icon">{selectedRole === 'passenger' ? <IconProfile size={24}/> : <IconDriver size={24}/>}</span>
                   <span className="auth-role-option__copy">
                     <strong>{selectedRole === 'passenger' ? 'Passenger' : 'Driver'}</strong>
-                    <small>{selectedRole === 'passenger' ? 'Book rides' : 'Accept rides'}</small>
+                    <small>{selectedRole === 'passenger' ? 'Book and track rides' : 'Accept ride requests'}</small>
                   </span>
                   {role === selectedRole && <IconCheck size={16} className="auth-role-option__check"/>}
                 </label>
@@ -431,7 +442,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
 
           {mode === 'register' && role === 'driver' && (
             <section className="auth-driver-section" aria-label="Driver details">
-              <h2>Driver details</h2>
+              <h2><IconDriver size={20}/>Driver details</h2>
               <div className="auth-two-columns">
                 <FormField id="auth-plateNumber" label="Plate number" error={fieldErrors.plateNumber}>
                   <AppInput {...field('plateNumber')} id="auth-plateNumber" value={form.plateNumber} onChange={event => changeField('plateNumber', event.target.value)} disabled={isSubmitting} placeholder="SDS-0000" className="auth-input"/>
