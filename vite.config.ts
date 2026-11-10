@@ -1,4 +1,4 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
@@ -10,6 +10,18 @@ import siteConfiguration from './.figma/make/site.json'
 export default defineConfig(({ mode }) => {
   // `vite build --mode development` emits inline sourcemaps.
   const emitSourcemaps = mode === 'development'
+
+  // Forward /api/* to the XAMPP API. The browser then only talks to the address
+  // it opened (localhost or this computer's Wi-Fi IP), so no CORS list is needed
+  // and phones on the same Wi-Fi can sign in too.
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiProxy: Record<string, ProxyOptions> = {
+    '/api/': {
+      target: env.PASAKJA_API_PROXY_TARGET || 'http://localhost/PASAKJA-main/api',
+      changeOrigin: true,
+      rewrite: (requestPath) => requestPath.replace(/^\/api/, ''),
+    },
+  }
 
   return {
     base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
@@ -30,11 +42,17 @@ react(),
         '@': path.resolve(__dirname, './src'),
       },
     },
+    // The report libraries load only when an admin downloads a report. Preparing
+    // them at startup stops the dev server reloading the page on that first click.
+    optimizeDeps: {
+      include: ['jspdf', 'jspdf-autotable', 'write-excel-file/browser'],
+    },
     server: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       // 5173, not the template's 8443, so PASAKJA can run beside other Figma Make apps.
       port: parseInt(process.env.PORT || '5173'),
       strictPort: true,
+      proxy: apiProxy,
       watch: {
         ignored: [
           '**/.figma/**',
@@ -44,6 +62,7 @@ react(),
     preview: {
       host: process.env.FIGMA_DEV_SERVER_HOST || '0.0.0.0',
       port: parseInt(process.env.PORT || '5173'),
+      proxy: apiProxy,
     },
   }
 })

@@ -1,8 +1,9 @@
 <?php
 declare(strict_types=1);
 
-// Tests for api/dispatch_service.php. Run: C:\xampp\php\php.exe scripts\dispatch-test.php
+// Tests for api/dispatch_service.php and api/ride_status.php. Run: C:\xampp\php\php.exe scripts\dispatch-test.php
 require __DIR__ . '/../api/dispatch_service.php';
+require __DIR__ . '/../api/ride_status.php';
 
 $failures = 0;
 $passed = 0;
@@ -73,6 +74,13 @@ check('an unranked driver has no distance', dispatchOfferFor(99, $ranked, 80)['d
 check('a negative wait is treated as 0 s', $visibleIds($everyone, $ranked, -5) === [2]);
 check('with no nearby online driver it is open to all at once', $visibleIds($everyone, [], 0) === $everyone);
 check('after a decline the next driver sees it at 0 s', $visibleIds($everyone, $afterDecline, 0) === [1]);
+
+// Driver ride steps: each next status must name the status it comes from.
+check('Start pickup moves an accepted ride', rideStatusBefore('arriving') === 'accepted');
+check('Start trip moves an arriving ride', rideStatusBefore('in_progress') === 'arriving');
+check('Complete ride moves an in-progress ride', rideStatusBefore('completed') === 'in_progress');
+check('a driver cannot set a ride back to accepted', rideStatusBefore('accepted') === null);
+check('a driver cannot cancel through the status step', rideStatusBefore('cancelled') === null);
 
 echo "\n$passed passed, $failures failed\n";
 exit($failures === 0 ? 0 : 1);

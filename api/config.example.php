@@ -12,4 +12,8 @@ return [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
     ],
+    // Street routes for the ride map. The free demo server suits testing only;
+    // point this at your own OSRM server before real use.
+    'osrm_base_url' => 'https://router.project-osrm.org',
+    'osrm_user_agent' => 'PASAKJA/1.0 (tricycle ride booking)',
 ];

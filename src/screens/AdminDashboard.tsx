@@ -134,6 +134,19 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
   const [drivers, setDrivers] = useState<Awaited<ReturnType<typeof getAdminDrivers>>>([]);
   const [driversError, setDriversError] = useState('');
   const [updatingDriver, setUpdatingDriver] = useState<number | null>(null);
+  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
+  const [exportError, setExportError] = useState('');
+  const exportReport = async (format: 'pdf' | 'excel') => {
+    if (exporting) return;
+    setExporting(format);
+    setExportError('');
+    try {
+      const reports = await import('../services/reports');
+      const report = await reports.loadAdminReport();
+      await (format === 'pdf' ? reports.downloadReportPdf(report) : reports.downloadReportExcel(report));
+    } catch (error) { setExportError(error instanceof Error ? error.message : 'Could not create the report. Try again.'); }
+    finally { setExporting(null); }
+  };
   useEffect(() => {
     if (tab !== 'overview') return;
     let mounted = true;
@@ -203,11 +216,11 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             <p>Carrascal · Cantilan · Madrid · Carmen · Lanuza</p>
           </div>
           <div className="admin-dashboard-header__actions">
-            <button type="button" className="admin-header-button">
-              <IconFile size={16}/>PDF
+            <button type="button" disabled={exporting !== null} aria-busy={exporting === 'pdf'} onClick={() => void exportReport('pdf')} aria-label="Download report as PDF" className="admin-header-button">
+              <IconFile size={16}/>{exporting === 'pdf' ? 'Preparing…' : 'PDF'}
             </button>
-            <button type="button" className="admin-header-button">
-              <IconChart size={16}/>Excel
+            <button type="button" disabled={exporting !== null} aria-busy={exporting === 'excel'} onClick={() => void exportReport('excel')} aria-label="Download report as Excel" className="admin-header-button">
+              <IconChart size={16}/>{exporting === 'excel' ? 'Preparing…' : 'Excel'}
             </button>
           </div>
         </div>
@@ -231,6 +244,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
       </div>
 
       <div className="admin-page-content">
+        {exportError && <ErrorState message={exportError}/>}
 
         {tab === 'overview' && (
           <>

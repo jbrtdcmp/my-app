@@ -130,9 +130,10 @@ export function IconAdmin({ size = 20, className = '' }: IconProps) {
   return <Icon size={size} className={className}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></Icon>;
 }
 
-// A covered three-wheeler seen from the side, simple enough to read at 16px.
+// A Filipino tricycle from the side: the covered sidecar with its roof reaching
+// over the driver, and the motorcycle's handlebar and front fork in front.
 export function IconDriver({ size = 20, className = '' }: IconProps) {
-  return <Icon size={size} className={className}><path d="M4 16.5V10a5 5 0 0 1 5-5h4.2a2 2 0 0 1 1.8 1.1L18 12h1.5a1.5 1.5 0 0 1 1.5 1.5v3"/><path d="M7.5 12V9.5a1 1 0 0 1 1-1H13l1.8 3.5Z"/><path d="M4 16.5h1.5"/><path d="M10.5 16.5h3"/><path d="M18.5 16.5H21"/><circle cx="8" cy="16.5" r="2.5"/><circle cx="16" cy="16.5" r="2.5"/></Icon>;
+  return <Icon size={size} className={className}><path d="M2 5.5h15"/><path d="M4 15V9.5A2 2 0 0 1 6 7.5h6V15"/><path d="M7 15h7.5"/><path d="M16 9h3l2.4 7"/><circle cx="7" cy="17.5" r="2.5"/><circle cx="19.5" cy="17.5" r="2.5"/></Icon>;
 }
 
 export function IconShield({ size = 20, className = '' }: IconProps) {

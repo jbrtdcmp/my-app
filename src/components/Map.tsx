@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L, { type LatLngExpression } from 'leaflet';
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -24,6 +24,8 @@ interface MapProps {
   driverPosition?: MapPoint | null;
   driverHeading?: number | null;
   routeGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+  // True when the API could not get a street route and sent a straight line instead.
+  routeApproximate?: boolean;
 }
 
 // These town centers must match PASAKJA_TOWN_CENTERS in api/fare_service.php.
@@ -69,6 +71,34 @@ function MapBehavior({ center, activePickField, onMapPick }: {
   return null;
 }
 
+// Leaflet only notices window resizes. This also catches the map box changing
+// size, for example when the ride panel opens or closes.
+function ResizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
+// Zooms to show the whole route when it first appears and when its end changes
+// (pickup, then destination), but not on every refresh, so panning isn't undone.
+function FitRoute({ positions }: { positions: [number, number][] }) {
+  const map = useMap();
+  const fittedEnd = useRef('');
+  useEffect(() => {
+    if (positions.length < 2) return;
+    const [endLat, endLng] = positions[positions.length - 1];
+    const end = `${endLat.toFixed(5)},${endLng.toFixed(5)}`;
+    if (fittedEnd.current === end) return;
+    fittedEnd.current = end;
+    map.fitBounds(L.latLngBounds(positions), { padding: [40, 40], maxZoom: 17 });
+  }, [map, positions]);
+  return null;
+}
+
 function LocateControl({ onLocationFound }: { onLocationFound?: (point: MapPoint) => void }) {
   const map = useMap();
   const [error, setError] = useState('');
@@ -98,10 +128,14 @@ function LocateControl({ onLocationFound }: { onLocationFound?: (point: MapPoint
   </>;
 }
 
-export default function Map({ activeMunicipality, className = '', compact = false, pickupPosition, destinationPosition, currentPosition, activePickField, pickHint, onMapPick, onLocationFound, driverPosition, driverHeading, routeGeometry }: MapProps) {
+export default function Map({ activeMunicipality, className = '', compact = false, pickupPosition, destinationPosition, currentPosition, activePickField, pickHint, onMapPick, onLocationFound, driverPosition, driverHeading, routeGeometry, routeApproximate = false }: MapProps) {
   const center = MUNICIPALITY_CENTERS[activeMunicipality ?? 'carrascal'] ?? MUNICIPALITY_CENTERS.carrascal;
   const centerExpression = useMemo<LatLngExpression>(() => [center.lat, center.lng], [center.lat, center.lng]);
   const canPick = Boolean(activePickField && onMapPick);
+  const routePositions = useMemo(
+    () => (routeGeometry?.coordinates ?? []).map(([lng, lat]) => [lat, lng] as [number, number]),
+    [routeGeometry],
+  );
 
   return (
     <div className={`pasakja-map relative overflow-hidden ${className} ${canPick ? 'pasakja-map-pick-mode' : ''}`} style={{ minHeight: compact ? 160 : 240 }}>
@@ -114,7 +148,10 @@ export default function Map({ activeMunicipality, className = '', compact = fals
         {pickupPosition && (!currentPosition || pickupPosition.lat !== currentPosition.lat || pickupPosition.lng !== currentPosition.lng) && <Marker position={[pickupPosition.lat, pickupPosition.lng]} icon={markerIcon('pickup')} title="Pickup"/>}
         {destinationPosition && <Marker position={[destinationPosition.lat, destinationPosition.lng]} icon={markerIcon('destination')} title="Destination"/>}
         {currentPosition && <Marker position={[currentPosition.lat, currentPosition.lng]} icon={markerIcon('user')} title="You"/>}
-        {routeGeometry?.coordinates?.length ? <Polyline positions={routeGeometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number])} pathOptions={{ color: '#568570', weight: 5, opacity: 0.82 }}/> : null}
+        <ResizeWatcher/>
+        <FitRoute positions={routePositions}/>
+        {routePositions.length && !routeApproximate ? <Polyline positions={routePositions} interactive={false} pathOptions={{ color: '#FFFFFF', weight: 9, opacity: 0.9 }}/> : null}
+        {routePositions.length ? <Polyline positions={routePositions} interactive={false} pathOptions={routeApproximate ? { color: '#568570', weight: 4, opacity: 0.6, dashArray: '6 10' } : { color: '#568570', weight: 5, opacity: 0.95 }}/> : null}
         {driverPosition && <Marker position={[driverPosition.lat, driverPosition.lng]} icon={driverIcon(driverHeading)} title="Driver"/>}
         <LocateControl onLocationFound={onLocationFound}/>
       </MapContainer>

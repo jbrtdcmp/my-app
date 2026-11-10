@@ -13,6 +13,7 @@ import AdminDashboard from './screens/AdminDashboard';
 import type { AdminTab } from './screens/AdminDashboard';
 import PublicTrip from './screens/PublicTrip';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
+import { Logo } from './components/Logo';
 import { acceptRide, authenticate, createRide, getAdminSos, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
 import { AUTH_PATHS, isExactRoleRoute, pathForRide, pathForScreen, resolveRolePath, rideFallbackPath, useRoleRoutes, type AppRole, type AppScreen } from './navigation/roleRoutes';
 import { useBackNavigation } from './navigation/useBackNavigation';
@@ -50,11 +51,7 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar__brand">
-        <span className="brand-mark"><IconDriver size={24}/></span>
-        <div className="min-w-0">
-          <p className="brand-wordmark">PASAKJA</p>
-          <p className="text-xs font-medium text-ink-soft">{roleLabel}</p>
-        </div>
+        <Logo width={40} tagline={roleLabel}/>
       </div>
 
       {role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} className="app-sidebar__sos">

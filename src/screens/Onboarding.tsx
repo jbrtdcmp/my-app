@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { IconArrowRight, IconDriver, IconLocation, IconShield, IconTag } from '../components/Icons';
+import { IconArrowRight, IconLocation, IconShield, IconTag } from '../components/Icons';
+import { Logo } from '../components/Logo';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -39,24 +40,42 @@ function Backdrop() {
   </>;
 }
 
-// A side-view tricycle: covered sidecar, motorcycle front, two wheels.
+// A Filipino tricycle seen from the side: a driver on a motorcycle (handlebar,
+// front fork, headlight, tank, two wheels) with the covered passenger sidecar on
+// the far side, its roof reaching over the driver, and the sidecar's own wheel.
 function Tricycle({ x, y, scale = 1 }: { x: number; y: number; scale?: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <ellipse cx="68" cy="96" rx="70" ry="6" fill="#1E1A17" opacity=".12"/>
-      <rect x="2" y="12" width="92" height="11" rx="5.5" fill="#A94C1B"/>
-      <path d="M8 74V34a12 12 0 0 1 12-12h58l14 28v24Z" fill="#D86F2F"/>
-      <path d="M22 30h48l10 20H22Z" fill="#FFF4EC"/>
-      <path d="M46 30v20" stroke="#D86F2F" strokeWidth="4"/>
-      <path d="M90 50h26l14 24H90Z" fill="#BF531A"/>
-      <path d="M118 34l10 44" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
-      <path d="M112 34h14" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
-      <circle cx="130" cy="52" r="5" fill="#F2A65A"/>
-      <rect x="6" y="68" width="124" height="9" rx="4.5" fill="#A94C1B"/>
-      <circle cx="38" cy="80" r="15" fill="#1E1A17"/>
-      <circle cx="38" cy="80" r="6" fill="#FFF4EC"/>
-      <circle cx="122" cy="80" r="15" fill="#1E1A17"/>
-      <circle cx="122" cy="80" r="6" fill="#FFF4EC"/>
+      <ellipse cx="72" cy="93" rx="70" ry="5" fill="#1E1A17" opacity=".12"/>
+      {/* Sidecar */}
+      <path d="M8 74V32a12 12 0 0 1 12-12h60c5 0 9 3 11 8l7 18v28Z" fill="#D86F2F"/>
+      <rect x="18" y="28" width="44" height="24" rx="6" fill="#FFF4EC"/>
+      <path d="M40 28v24" stroke="#D86F2F" strokeWidth="3"/>
+      <rect x="8" y="60" width="90" height="5" fill="#F2A65A"/>
+      <path d="M2 16a6 6 0 0 1 6-6h96a4 4 0 0 1 0 8H8a6 6 0 0 1-6-2Z" fill="#A94C1B"/>
+      <path d="M100 18v32" stroke="#A94C1B" strokeWidth="3"/>
+      <circle cx="30" cy="81" r="10.5" fill="#4A423D"/>
+      <circle cx="30" cy="81" r="4.5" fill="#E9DED4"/>
+      {/* Driver */}
+      <path d="M63 54l3-22a4 4 0 0 1 4-3.5h7a4 4 0 0 1 4 3.5l2 22Z" fill="#6FA8C4"/>
+      <circle cx="73" cy="23" r="6" fill="#C98B5E"/>
+      <path d="M66.5 22a6.5 6.5 0 0 1 13 0Z" fill="#1E1A17"/>
+      <path d="M76 36l22-2" stroke="#6FA8C4" strokeWidth="5" strokeLinecap="round"/>
+      {/* Motorcycle */}
+      <path d="M58 70h44l10-14h6l-8 18H62Z" fill="#3A3330"/>
+      <rect x="58" y="52" width="26" height="7" rx="3.5" fill="#1E1A17"/>
+      <path d="M84 50h14a4 4 0 0 1 4 4v6H84Z" fill="#BF531A"/>
+      <rect x="70" y="60" width="22" height="12" rx="3" fill="#6B625B"/>
+      <path d="M66 55l18 2 4 13" stroke="#3A3330" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M104 34l20 46" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
+      <path d="M96 33h14" stroke="#1E1A17" strokeWidth="5" strokeLinecap="round"/>
+      <circle cx="113" cy="46" r="5" fill="#F2A65A"/>
+      <path d="M109 72a15 15 0 0 1 30 0" stroke="#BF531A" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <path d="M51 72a15 15 0 0 1 30 0" stroke="#BF531A" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <circle cx="66" cy="80" r="13" fill="#1E1A17"/>
+      <circle cx="66" cy="80" r="5.5" fill="#FFF4EC"/>
+      <circle cx="124" cy="80" r="13" fill="#1E1A17"/>
+      <circle cx="124" cy="80" r="5.5" fill="#FFF4EC"/>
     </g>
   );
 }
@@ -85,7 +104,7 @@ function BookingArt() {
         <path d="M232 108v5l3 2" stroke="#2F7A5A" strokeWidth="2" strokeLinecap="round" fill="none"/>
         <text x="246" y="117" fontSize="11" fontWeight="700" fill="#1E1A17">2 min away</text>
       </g>
-      <Tricycle x={22} y={176} scale={0.92}/>
+      <Tricycle x={4} y={168} scale={1.04}/>
     </svg>
   );
 }
@@ -155,10 +174,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   return (
     <main className="onboarding">
       <header className="onboarding__top">
-        <div className="onboarding__brand">
-          <span className="brand-mark brand-mark--small"><IconDriver size={20}/></span>
-          <span className="brand-wordmark">PASAKJA</span>
-        </div>
+        <Logo width={36}/>
         <button type="button" onClick={onComplete} className="onboarding-skip">Skip</button>
       </header>
 

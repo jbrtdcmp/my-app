@@ -135,7 +135,9 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost/PASAKJA-main/api').replace(/\/$/, '');
+// '/api' goes through the dev server's proxy (vite.config.ts), so it works from
+// localhost and from this computer's Wi-Fi address alike.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 const TOKEN_KEY = 'pasakja_auth_token';
 let authToken = typeof localStorage === 'undefined' ? '' : localStorage.getItem(TOKEN_KEY) || '';
 

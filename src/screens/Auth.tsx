@@ -8,6 +8,7 @@ import {
   IconProfile,
   IconX,
 } from '../components/Icons';
+import { Logo } from '../components/Logo';
 import type { AuthPayload } from '../services/api';
 import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
@@ -38,11 +39,7 @@ function AuthLayout({ mode, onBack, children }: { mode: AuthMode; onBack?: () =>
             </button>
           )}
           <div className="auth-hero__brand">
-            <span className="auth-hero__mark" aria-hidden="true"><IconDriver size={24}/></span>
-            <div>
-              <p className="auth-hero__name">PASAKJA</p>
-              <p className="auth-hero__tagline">Tricycle rides across Surigao del Sur</p>
-            </div>
+            <Logo width={52} variant="inverse" tone="light" tagline="Tricycle rides across Surigao del Sur" className="brand-lockup--large"/>
           </div>
         </div>
       </div>

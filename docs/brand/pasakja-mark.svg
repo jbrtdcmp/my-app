@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>PASAKJA</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F0924A"/>
+      <stop offset="1" stop-color="#B84E17"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#tile)"/>
+  <path fill="#FFFFFF" d="M17 19a5 5 0 0 1 5-5h15.6a5 5 0 0 1 4.6 3l4.7 10.9A3.6 3.6 0 0 1 43.6 33H26v8h-9Z"/>
+  <path fill="#C9581E" d="M26 21h9.4a1.6 1.6 0 0 1 1.5 1l2.3 5.4A1.2 1.2 0 0 1 38.1 29H26Z"/>
+  <circle cx="21.5" cy="44" r="6.5" fill="#FFFFFF"/>
+  <circle cx="21.5" cy="44" r="2.6" fill="#C9581E"/>
+  <circle cx="41" cy="40" r="5.4" fill="#FFFFFF"/>
+  <circle cx="41" cy="40" r="2.1" fill="#C9581E"/>
+  <path d="M8 55c6-3 11-3 16 0s10 3 16 0 10-3 16 0" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+</svg>

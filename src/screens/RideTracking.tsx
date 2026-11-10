@@ -45,6 +45,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   const [showCancel, setShowCancel] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
   const [trackingError, setTrackingError] = useState('');
+  const [statusError, setStatusError] = useState('');
   const [busy, setBusy] = useState(false);
   const [sheetExpanded, setSheetExpanded] = useState(true);
   const dragStartY = useRef<number | null>(null);
@@ -96,14 +97,14 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
 
   const advance = async () => {
     if (!rideId || busy) return;
-    setBusy(true); setTrackingError('');
+    setBusy(true); setStatusError('');
     try {
       const next = serverStatus === 'accepted' ? 'arriving' : serverStatus === 'arriving' ? 'in_progress' : 'completed';
       await updateRideStatus(rideId, next);
       setServerStatus(next);
       await refresh();
       if (next === 'completed') onComplete();
-    } catch (error) { setTrackingError(error instanceof Error ? error.message : 'Could not update ride status.'); }
+    } catch (error) { setStatusError(error instanceof Error ? error.message : 'Could not update ride status.'); }
     finally { setBusy(false); }
   };
 
@@ -148,8 +149,10 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   const displayStatus = snapshot?.status === 'in_progress' ? 'in-progress' : 'arriving';
 
   return <div className="flex-1 flex flex-col h-full relative overflow-hidden">
-    <div className={`ride-tracking-map absolute inset-0 md:bottom-0 ${sheetExpanded ? 'ride-tracking-map--expanded' : 'ride-tracking-map--collapsed'}`}>
-      <Map activeMunicipality={snapshot?.municipality?.toLowerCase() || 'carrascal'} showRoute className="h-full" rideState={displayStatus} driverPosition={displayPosition} driverHeading={displayPosition?.heading} routeGeometry={snapshot?.route}/>
+    <div className={`ride-tracking-map absolute inset-x-0 top-0 md:bottom-0 ${sheetExpanded ? 'ride-tracking-map--expanded' : 'ride-tracking-map--collapsed'}`}>
+      <Map activeMunicipality={snapshot?.municipality?.toLowerCase() || 'carrascal'} showRoute className="h-full" rideState={displayStatus} driverPosition={displayPosition} driverHeading={displayPosition?.heading} routeGeometry={snapshot?.route} routeApproximate={Boolean(snapshot?.route_fallback)}
+        pickupPosition={snapshot?.status !== 'in_progress' ? targetPosition : null}
+        destinationPosition={snapshot?.status === 'in_progress' ? targetPosition : null}/>
       <div className="absolute top-4 left-0 right-0 flex justify-center"><StatusBadge status={displayStatus} label={config.label}/></div>
       {!displayPosition && serverStatus !== 'completed' && <div className="absolute top-16 left-1/2 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm text-ink-soft shadow-card">Locating driver…</div>}
       {snapshot?.stale && snapshot.position && <div role="status" className="absolute left-3 right-3 top-28 rounded-xl bg-warning/10 px-3 py-2 text-center text-sm text-ink">Driver’s signal is weak. Showing last received location.</div>}
@@ -200,6 +203,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
 
         {targetPosition && <button type="button" onClick={() => openDeviceNavigation({ ...targetPosition, label: target?.label })} className="btn-secondary w-full"><IconNavigation size={18}/>Navigate to {snapshot?.status === 'in_progress' ? 'destination' : 'pickup'}</button>}
         <SosControl rideId={rideId} municipality={snapshot?.municipality || 'Carrascal'}/>
+        {isDriver && statusError && <p role="alert" className="notice notice--danger">{statusError}</p>}
         {isDriver ? serverStatus !== 'completed' && <button type="button" disabled={busy} onClick={() => void advance()} className="btn-primary btn-large w-full">{busy ? 'Updating…' : serverStatus === 'accepted' ? 'Start pickup' : serverStatus === 'arriving' ? 'Start trip' : 'Complete ride'}</button> : <>
           <p className="text-center text-xs text-ink-soft">{serverStatus === 'in_progress' ? 'Your trip is in progress.' : 'Waiting for your driver to update the trip.'}</p>
           {['accepted', 'arriving'].includes(serverStatus) && <button type="button" onClick={() => setShowCancel(true)} className="btn-quiet w-full">Cancel ride</button>}

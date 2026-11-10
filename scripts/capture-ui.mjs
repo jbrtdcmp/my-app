@@ -8,7 +8,9 @@ for (const envFile of ['.env.local', '.env']) {
 
 const BASE_URL = process.env.PASAKJA_URL || 'http://localhost:5173';
 const API_HEALTH = process.env.PASAKJA_API_HEALTH || 'http://localhost/PASAKJA-main/api/health';
-const API_BASE = (process.env.VITE_API_BASE_URL || process.env.PASAKJA_API_BASE || 'http://localhost/PASAKJA-main/api').replace(/\/$/, '');
+// Node can't use the app's relative '/api' path, so fall back to the Apache URL.
+const APP_API_BASE = /^https?:\/\//.test(process.env.VITE_API_BASE_URL || '') ? process.env.VITE_API_BASE_URL : '';
+const API_BASE = (process.env.PASAKJA_API_BASE || APP_API_BASE || 'http://localhost/PASAKJA-main/api').replace(/\/$/, '');
 const OUT_DIR = 'docs/ride-flow-after';
 const FULL_DIR = `${OUT_DIR}/full`;
 const ROLE_PREFIX = { passenger: '/passenger/', driver: '/driver/', admin: '/admin/' };

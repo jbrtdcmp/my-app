@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/fare_service.php';
 require_once __DIR__ . '/dispatch_service.php';
+require_once __DIR__ . '/ride_status.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -148,7 +149,9 @@ function routeBetween(PDO $pdo, array $config, float $fromLat, float $fromLng, f
     $base = rtrim((string)($config['osrm_base_url'] ?? getenv('OSRM_BASE_URL') ?: 'https://router.project-osrm.org'), '/');
     $url = $base . '/route/v1/driving/' . number_format($fromLng, 7, '.', '') . ',' . number_format($fromLat, 7, '.', '') . ';' . number_format($toLng, 7, '.', '') . ',' . number_format($toLat, 7, '.', '') . '?overview=full&geometries=geojson';
     $curl = curl_init($url);
-    curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT_MS => 1000, CURLOPT_TIMEOUT_MS => 3000, CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP]);
+    // The public OSRM server answers 403 to requests that don't name the app, so always send one.
+    $userAgent = (string)($config['osrm_user_agent'] ?? 'PASAKJA/1.0 (tricycle ride booking)');
+    curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT_MS => 1500, CURLOPT_TIMEOUT_MS => 4000, CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_USERAGENT => $userAgent]);
     $response = curl_exec($curl);
     $httpStatus = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
@@ -162,8 +165,9 @@ function routeBetween(PDO $pdo, array $config, float $fromLat, float $fromLng, f
             $fallback = false;
         }
     }
-    $save = $pdo->prepare('REPLACE INTO route_cache (cache_key, geometry_json, distance_m, duration_s, fallback, expires_at) VALUES (?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 60 SECOND))');
-    $save->execute([$key, json_encode($geometry, JSON_UNESCAPED_SLASHES), $distance, $duration, $fallback ? 1 : 0]);
+    // Keep a straight-line fallback only briefly so the next refresh asks for a street route again.
+    $save = $pdo->prepare('REPLACE INTO route_cache (cache_key, geometry_json, distance_m, duration_s, fallback, expires_at) VALUES (?, ?, ?, ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? SECOND))');
+    $save->execute([$key, json_encode($geometry, JSON_UNESCAPED_SLASHES), $distance, $duration, $fallback ? 1 : 0, $fallback ? 10 : 60]);
     return ['geometry' => $geometry, 'distance_m' => $distance, 'duration_s' => $duration, 'fallback' => $fallback];
 }
 
@@ -172,7 +176,8 @@ function updateRideRoute(PDO $pdo, array $config, int $rideId, array $origin, ar
     $last = $pdo->prepare('SELECT origin_lat, origin_lng, target_lat, target_lng, geometry_json, distance_m, duration_s, fallback FROM ride_route_state WHERE ride_id = ?');
     $last->execute([$rideId]);
     $previous = $last->fetch();
-    if ($previous && haversineMeters((float)$previous['origin_lat'], (float)$previous['origin_lng'], $origin['lat'], $origin['lng']) < 50
+    // Reuse the last street route while the driver is near where it was planned; never reuse a straight-line fallback.
+    if ($previous && !(bool)$previous['fallback'] && haversineMeters((float)$previous['origin_lat'], (float)$previous['origin_lng'], $origin['lat'], $origin['lng']) < 50
         && haversineMeters((float)$previous['target_lat'], (float)$previous['target_lng'], $target['lat'], $target['lng']) < 5) {
         return ['geometry' => json_decode($previous['geometry_json'], true), 'distance_m' => (float)$previous['distance_m'], 'duration_s' => (float)$previous['duration_s'], 'fallback' => (bool)$previous['fallback']];
     }
@@ -714,9 +719,8 @@ try {
         requireRole($user, 'driver', 'admin');
         $rideId = filter_var($segments[1], FILTER_VALIDATE_INT);
         $next = (string)(body()['status'] ?? '');
-        $transitions = ['accepted' => 'arriving', 'arriving' => 'in_progress', 'in_progress' => 'completed'];
-        if (!$rideId || !isset($transitions[$next])) throw new ApiError(422, 'Invalid ride status transition.');
-        $from = array_search($next, $transitions, true);
+        $from = rideStatusBefore($next);
+        if (!$rideId || $from === null) throw new ApiError(422, 'Invalid ride status transition.');
         $pdo = database($config);
         $pdo->beginTransaction();
         try {

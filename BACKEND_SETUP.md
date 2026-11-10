@@ -11,9 +11,15 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 1. Start **Apache** and **MySQL** in the XAMPP Control Panel.
 2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables.
 3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git.
-4. Copy `.env.example` to `.env.local`. Set `VITE_API_BASE_URL` to the Apache URL for this folder. Restart Vite after changing it.
+4. Copy `.env.example` to `.env.local`. Keep `VITE_API_BASE_URL=/api`; the Vite dev server forwards `/api` to `PASAKJA_API_PROXY_TARGET` (the Apache URL for this folder). Restart Vite after changing either value.
 5. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
 6. Set `PASAKJA_DEMO_PASSWORD` in your shell, then create the local demo accounts by running `C:\xampp\php\php.exe database\seed_demo_accounts_v2.php` from this project folder. The three phone numbers are `+639000000001` (passenger), `+639000000002` (driver), and `+639000000003` (admin). The driver account is pre-approved for testing.
+
+## Opening the app on localhost or the network
+
+Run `npm run dev`. Vite prints two addresses: `Local` (`http://localhost:5173`) for this computer and `Network` (`http://<your Wi-Fi IP>:5173`) for phones or laptops on the same Wi-Fi. The same accounts work on both, because every API request goes through the dev server instead of straight to Apache. Your Wi-Fi IP can change after a restart, so use the `Network` line Vite prints each time. If another device can't open the page, allow Node.js through Windows Firewall on private networks.
+
+A production build (`npm run build`) served by Apache has no dev server in front of it. For that case, set `VITE_API_BASE_URL` to the full API URL and add the page's address to `allowed_origins` in `api/config.local.php`.
 
 The seed script is for local testing only and refuses web requests. It reads the database configuration from `api/config.local.php`, never writes passwords to the console, and leaves existing accounts unchanged. Remove the demo accounts before deploying this database publicly.
 
