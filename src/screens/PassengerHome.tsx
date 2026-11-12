@@ -3,7 +3,17 @@ import Map, { type MapPoint } from '../components/Map';
 import { IconCheck, IconChevronDown, IconClock, IconDriver, IconKey, IconLocation, IconPackage, IconTag, IconUsers } from '../components/Icons';
 import { StatusBadge } from '../components/ui';
 import { MUNICIPALITIES, RIDE_TYPES, type Landmark, type Municipality, type RideType } from '../data';
-import { estimateFare, getRides, ApiError, type ApiRide, type FareEstimate, type RideRequest } from '../services/api';
+import { estimateFare, getRides, lookupPlaceName, ApiError, type ApiRide, type FareEstimate, type RideRequest } from '../services/api';
+
+const pinLabel = (point: MapPoint) => `Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`;
+
+// Swaps a pin's coordinates for a street name once OpenStreetMap answers,
+// unless the passenger has changed that field in the meantime.
+function nameMapPin(point: MapPoint, placeholder: string, setLabel: (update: (current: string) => string) => void) {
+  lookupPlaceName(point)
+    .then(label => { if (label) setLabel(current => (current === placeholder ? label : current)); })
+    .catch(() => { /* keep the coordinates */ });
+}
 
 interface PassengerHomeProps {
   onBookingStart: (ride: RideRequest) => Promise<void>;
@@ -337,10 +347,10 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             if (activePickField === 'pickup') {
               setPickupPosition(point);
               setCurrentPosition(null);
-              if (pendingPin !== 'pickup') setPickup(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
+              if (pendingPin !== 'pickup') { setPickup(pinLabel(point)); nameMapPin(point, pinLabel(point), setPickup); }
             } else if (activePickField === 'destination') {
               setDestinationPosition(point);
-              if (pendingPin !== 'destination') setDestination(`Map pin (${point.lat.toFixed(5)}, ${point.lng.toFixed(5)})`);
+              if (pendingPin !== 'destination') { setDestination(pinLabel(point)); nameMapPin(point, pinLabel(point), setDestination); }
             }
             setActivePickField(null);
             setPendingPin(null);
@@ -351,6 +361,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
             setPickupPosition(point);
             setCurrentPosition(point);
             setPickup('Current location');
+            nameMapPin(point, 'Current location', setPickup);
             setActivePickField(null);
             setPendingPin(null);
             setPinHint('');

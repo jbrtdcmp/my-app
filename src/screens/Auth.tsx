@@ -9,7 +9,7 @@ import {
   IconX,
 } from '../components/Icons';
 import { Logo } from '../components/Logo';
-import type { AuthPayload } from '../services/api';
+import { requestPasswordReset, type AuthPayload } from '../services/api';
 import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
 type Role = 'passenger' | 'driver';
@@ -62,6 +62,51 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
   );
 }
 
+// PASAKJA has no email or SMS service, so a reset request goes to the admins,
+// who call or text the person a temporary password.
+function ForgotPasswordDialog({ initialIdentifier, onClose }: { initialIdentifier: string; onClose: () => void }) {
+  const [identifier, setIdentifier] = useState(initialIdentifier);
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState('');
+  const [error, setError] = useState('');
+
+  const send = async () => {
+    if (busy) return;
+    if (!identifier.trim()) { setError('Enter the phone number or email on your account.'); return; }
+    setBusy(true);
+    setError('');
+    try { setSent(await requestPasswordReset(identifier.trim())); }
+    catch (sendError) { setError(sendError instanceof Error ? sendError.message : 'Could not send the request. Try again.'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center px-4 md:items-center" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="dialog-card dialog-sheet w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="forgot-title">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h2 id="forgot-title">Reset your password</h2>
+          <button type="button" onClick={onClose} className="btn-icon" aria-label="Close"><IconX size={18}/></button>
+        </div>
+        {sent ? (
+          <>
+            <p className="auth-forgot-sent" role="status"><IconCheck size={18}/><span>{sent}</span></p>
+            <p className="mb-4 text-sm text-ink-soft">Then sign in with the temporary password and change it in Profile → Change password.</p>
+            <AppButton type="button" size="large" onClick={onClose} className="auth-submit-button">Back to sign in</AppButton>
+          </>
+        ) : (
+          <>
+            <p className="mb-4 text-sm text-ink-soft">Enter the phone number or email on your account. A PASAKJA admin will call or text you a temporary password.</p>
+            <FormField id="forgot-identifier" label="Phone number or email" error={error}>
+              <AppInput id="forgot-identifier" value={identifier} autoComplete="username" onChange={event => setIdentifier(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') void send(); }} placeholder="Phone or email" className="auth-input" disabled={busy}/>
+            </FormField>
+            <AppButton type="button" size="large" disabled={busy} onClick={() => void send()} className="auth-submit-button">{busy ? 'Sending…' : 'Send reset request'}</AppButton>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return <p id={id} className="auth-field-error" role="alert"><IconAlertCircle size={14}/><span>{message}</span></p>;
@@ -79,6 +124,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [municipality, setMunicipality] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
   const [vehicleType, setVehicleType] = useState('');
   const fieldsRef = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -213,7 +259,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
     setFieldErrors({});
     setIsSubmitting(true);
     try {
-      await onAuth(role, { mode, role, ...form });
+      await onAuth(role, { mode, role, ...form, municipality });
     } catch (error) {
       setAuthError(mode === 'login'
         ? 'We couldn’t sign you in with those details. Check them and try again.'
@@ -433,7 +479,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
                   <EyeIcon hidden={showPassword}/>
                 </button>
               </div>
-              <button type="button" className="auth-forgot-link">Forgot password?</button>
+              <button type="button" className="auth-forgot-link" onClick={() => setShowForgot(true)}>Forgot password?</button>
             </FormField>
           )}
 
@@ -510,6 +556,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
           <button type="button" className="auth-footer-link" onClick={switchMode}>{mode === 'login' ? 'Sign up' : 'Sign in'}</button>
         </p>
       </form>
+      {showForgot && <ForgotPasswordDialog initialIdentifier={form.phone} onClose={() => setShowForgot(false)}/>}
     </AuthLayout>
   );
 }

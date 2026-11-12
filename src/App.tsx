@@ -73,7 +73,7 @@ function RoleSidebar({ activeScreen, onNavigate, onLogout, onOpenSos, role, sosC
 
       <div className="app-sidebar__footer">
         <div className="app-sidebar__account">
-          <span className="avatar avatar--small">{user?.name?.slice(0, 1).toUpperCase() ?? 'P'}</span>
+          <span className="avatar avatar--small">{user?.avatar ? <img src={user.avatar} alt="" className="avatar__photo"/> : user?.name?.slice(0, 1).toUpperCase() ?? 'P'}</span>
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-ink">{user?.name ?? 'Account'}</p>
             <p className="text-xs capitalize text-ink-soft">{role}</p>
@@ -115,7 +115,7 @@ function RoleTopBar({ title, onBack, onOpenSos, role, sosCount }: { title: strin
   );
 }
 
-function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onLogout }: {
+function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onLogout, onUserChange }: {
   screen: Screen;
   role: UserRole;
   user: ApiUser | null;
@@ -129,6 +129,7 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
   onRideFound: () => void;
   onComplete: () => void;
   onLogout: () => void;
+  onUserChange: (user: ApiUser) => void;
 }) {
   if (rideState === 'finding') return <FindingDriver rideId={rideId} onFound={onRideFound} onCancel={onComplete}/>;
   if (rideState === 'tracking') return <RideTracking rideId={rideId} onComplete={onComplete} isDriver={role === 'driver'}/>;
@@ -137,7 +138,7 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
     case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
     case 'bookings': return <Bookings onResumeRide={onResumeRide} canResume={role !== 'admin'}/>;
     case 'alerts': return <Alerts role={role}/>;
-    case 'profile': return <Profile role={role} user={user} onLogout={onLogout}/>;
+    case 'profile': return <Profile role={role} user={user} onLogout={onLogout} onUserChange={onUserChange}/>;
     case 'driver': return <DriverDashboard onAcceptRide={onDriverAcceptRide} onResumeRide={onResumeRide}/>;
     case 'admin': return <AdminDashboard initialTab={adminTab} onTabChange={onAdminTabChange}/>;
     case 'drivers': return <AdminDashboard initialTab="drivers" onTabChange={onAdminTabChange}/>;
@@ -404,6 +405,7 @@ export default function App() {
             onRideFound={handleRideFound}
             onComplete={handleRideComplete}
             onLogout={handleLogout}
+            onUserChange={setCurrentUser}
           />
       </div>
     </AppShell>

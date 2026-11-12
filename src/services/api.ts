@@ -6,6 +6,9 @@ export interface ApiUser {
   phone: string;
   email: string | null;
   role: AccountRole;
+  municipality?: string | null;
+  // Small image data URL, or null when no photo is saved.
+  avatar?: string | null;
 }
 
 export interface AuthPayload {
@@ -19,6 +22,7 @@ export interface AuthPayload {
   bodyNumber: string;
   licenseNumber: string;
   todaName: string;
+  municipality?: string;
 }
 
 export interface RideRequest {
@@ -326,4 +330,99 @@ export async function getAdminDrivers(): Promise<Array<{ id: number; full_name: 
 
 export async function verifyDriver(driverId: number, verification_status: 'verified' | 'rejected' | 'pending'): Promise<void> {
   await request(`admin/drivers/${driverId}`, { method: 'PATCH', body: JSON.stringify({ verification_status }) });
+}
+
+// ---- Account: forgot password, change password, profile photo
+
+export async function requestPasswordReset(identifier: string): Promise<string> {
+  const result = await request<{ message: string }>('auth/forgot', { method: 'POST', body: JSON.stringify({ identifier }) });
+  return result.message;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await request('auth/password', { method: 'POST', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+}
+
+export async function saveAvatar(image: string): Promise<string> {
+  const result = await request<{ avatar: string }>('me/avatar', { method: 'PUT', body: JSON.stringify({ image }) });
+  return result.avatar;
+}
+
+export async function removeAvatar(): Promise<void> {
+  await request('me/avatar', { method: 'DELETE' });
+}
+
+// ---- Alerts
+
+export type AlertType = 'community' | 'weather' | 'market' | 'fiesta' | 'port';
+export interface AlertItem {
+  key: string;
+  kind: 'community' | 'notification';
+  type: string;
+  title: string;
+  message: string;
+  municipality: string | null;
+  reference_id: number | null;
+  created_at: string;
+}
+export interface CommunityAlert { id: number; municipality: string | null; type: AlertType; title: string; message: string; created_at: string; author: string | null }
+
+export async function getAlerts(): Promise<{ items: AlertItem[]; municipality: string | null }> {
+  return request<{ items: AlertItem[]; municipality: string | null }>('alerts');
+}
+
+export async function getAdminAlerts(): Promise<CommunityAlert[]> {
+  const result = await request<{ alerts: CommunityAlert[] }>('admin/alerts');
+  return result.alerts;
+}
+
+export async function publishAlert(alert: { municipality: string; type: AlertType; title: string; message: string }): Promise<CommunityAlert> {
+  const result = await request<{ alert: CommunityAlert }>('admin/alerts', { method: 'POST', body: JSON.stringify(alert) });
+  return result.alert;
+}
+
+export async function removeAlert(alertId: number): Promise<void> {
+  await request(`admin/alerts/${alertId}`, { method: 'DELETE' });
+}
+
+// ---- Admin: password reset requests
+
+export interface PasswordResetRequest { id: number; user_id: number; full_name: string; phone: string; email: string | null; role: AccountRole; requested_at: string }
+
+export async function getPasswordResets(): Promise<PasswordResetRequest[]> {
+  const result = await request<{ requests: PasswordResetRequest[] }>('admin/password-resets');
+  return result.requests;
+}
+
+export async function answerPasswordReset(requestId: number, action: 'resolve' | 'dismiss'): Promise<{ temporary_password: string | null; user: { name: string; phone: string } }> {
+  return request(`admin/password-resets/${requestId}/${action}`, { method: 'POST', body: '{}' });
+}
+
+// ---- Admin: fares
+
+export interface MunicipalityFare { municipality: string; base_fare: number; included_km: number; per_km_rate: number; special_trip_multiplier: number; is_placeholder: boolean; updated_at: string }
+export interface IntertownFare { origin: string; destination: string; fixed_fare: number; is_placeholder: boolean; updated_at: string }
+export interface AdminFares { municipalities: MunicipalityFare[]; intertown: IntertownFare[]; discounts: { student: number; senior: number; pwd: number } }
+
+export async function getAdminFares(): Promise<AdminFares> {
+  return request<AdminFares>('admin/fares');
+}
+
+export async function saveMunicipalityFare(municipality: string, rule: Pick<MunicipalityFare, 'base_fare' | 'included_km' | 'per_km_rate' | 'special_trip_multiplier'>): Promise<AdminFares> {
+  return request<AdminFares>(`admin/fares/municipalities/${encodeURIComponent(municipality)}`, { method: 'PUT', body: JSON.stringify(rule) });
+}
+
+export async function saveIntertownFare(origin: string, destination: string, fixedFare: number): Promise<AdminFares> {
+  return request<AdminFares>('admin/fares/intertown', { method: 'PUT', body: JSON.stringify({ origin, destination, fixed_fare: fixedFare }) });
+}
+
+export async function saveDiscounts(discounts: AdminFares['discounts']): Promise<AdminFares> {
+  return request<AdminFares>('admin/fares/discounts', { method: 'PUT', body: JSON.stringify(discounts) });
+}
+
+// ---- Place names for map pins
+
+export async function lookupPlaceName(point: { lat: number; lng: number }): Promise<string | null> {
+  const result = await request<{ label: string | null }>(`places/reverse?lat=${point.lat.toFixed(5)}&lng=${point.lng.toFixed(5)}`);
+  return result.label;
 }

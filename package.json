@@ -12,7 +12,8 @@
     "check:ui": "node scripts/check-ui.mjs",
     "capture:ui": "node scripts/capture-ui.mjs",
     "test:routes": "node --experimental-strip-types --test scripts/role-routes.test.mjs",
-    "test:dispatch": "C:\\xampp\\php\\php.exe scripts/dispatch-test.php"
+    "test:dispatch": "C:\\xampp\\php\\php.exe scripts/dispatch-test.php",
+    "test:api": "C:\\xampp\\php\\php.exe scripts/api-test.php"
   },
   "dependencies": {
     "jspdf": "^4.2.1",

@@ -16,4 +16,6 @@ return [
     // point this at your own OSRM server before real use.
     'osrm_base_url' => 'https://router.project-osrm.org',
     'osrm_user_agent' => 'PASAKJA/1.0 (tricycle ride booking)',
+    // Street names for map pins (OpenStreetMap Nominatim). Results are cached for 30 days.
+    'nominatim_base_url' => 'https://nominatim.openstreetmap.org',
 ];

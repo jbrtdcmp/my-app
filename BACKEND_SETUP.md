@@ -9,7 +9,7 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 ## One-time local setup
 
 1. Start **Apache** and **MySQL** in the XAMPP Control Panel.
-2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables.
+2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables. Then import each file in `database/migrations/` in date order (oldest first): they add fares, live tracking, community alerts, password-reset requests and profile photos. Every migration is safe to run again.
 3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git.
 4. Copy `.env.example` to `.env.local`. Keep `VITE_API_BASE_URL=/api`; the Vite dev server forwards `/api` to `PASAKJA_API_PROXY_TARGET` (the Apache URL for this folder). Restart Vite after changing either value.
 5. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
@@ -42,8 +42,17 @@ Set database credentials in server environment variables or a private config out
 
 - `GET /health`
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`
+- `POST /auth/forgot` (reset request for an admin), `POST /auth/password` (change password)
+- `PUT /me/avatar`, `DELETE /me/avatar` (profile photo)
 - `GET /rides`, `POST /rides`
 - `GET /rides/{id}`, `POST /rides/{id}/accept`, `POST /rides/{id}/decline`
 - `PATCH /rides/{id}/status`, `POST /rides/{id}/cancel`, `POST /rides/{id}/rating`
+- `GET /alerts` (community notices for the user's town plus their own ride, SOS and account notices)
+- `GET /places/reverse?lat=&lng=` (street name for a map pin, from OpenStreetMap, cached)
+- Admin: `GET|POST /admin/alerts`, `DELETE /admin/alerts/{id}`; `GET /admin/password-resets`, `POST /admin/password-resets/{id}/resolve|dismiss`; `GET /admin/fares`, `PUT /admin/fares/municipalities/{town}`, `PUT /admin/fares/intertown`, `PUT /admin/fares/discounts`
+
+## Forgot password
+
+There is no email or SMS service, so "Forgot password?" sends a request to the admins. It appears on the admin **Overview** and in the admin's **Alerts**. **Issue temporary password** shows a one-time password to pass on by call or text; the person signs in with it and changes it in **Profile → Change password**. The reply to a reset request is the same whether or not the account exists, so it can't be used to check who has an account.
 
 Authenticated requests use `Authorization: Bearer <token>`.

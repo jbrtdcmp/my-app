@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/fare_service.php';
 require_once __DIR__ . '/dispatch_service.php';
 require_once __DIR__ . '/ride_status.php';
+require_once __DIR__ . '/feature_routes.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -17,7 +18,7 @@ if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header('Vary: Origin');
     header('Access-Control-Allow-Credentials: true');
 }
-header('Access-Control-Allow-Methods: GET, POST, PATCH, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PATCH, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
@@ -78,6 +79,8 @@ function publicUser(array $user): array
         'phone' => $user['phone'],
         'email' => $user['email'],
         'role' => $user['role'],
+        'municipality' => $user['municipality'] ?? null,
+        'avatar' => $user['avatar_data'] ?? null,
     ];
 }
 
@@ -229,7 +232,10 @@ try {
         $email = strtolower(trim((string)($input['email'] ?? '')));
         $password = (string)($input['password'] ?? '');
         $role = (string)($input['role'] ?? 'passenger');
+        $municipalityInput = trim((string)($input['municipality'] ?? ''));
+        $municipality = canonicalTown($municipalityInput);
         $errors = [];
+        if ($municipalityInput !== '' && $municipality === null) $errors['municipality'] = 'Choose one of the five towns.';
         if (mb_strlen($name) < 2 || mb_strlen($name) > 120) $errors['name'] = 'Enter your full name.';
         if (!preg_match('/^\+?[0-9]{7,18}$/', $phone)) $errors['phone'] = 'Enter a valid phone number.';
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Enter a valid email address.';
@@ -245,8 +251,8 @@ try {
         $pdo = database($config);
         $pdo->beginTransaction();
         try {
-            $statement = $pdo->prepare('INSERT INTO users (full_name, phone, email, password_hash, role) VALUES (?, ?, ?, ?, ?)');
-            $statement->execute([$name, $phone, $email !== '' ? $email : null, password_hash($password, PASSWORD_DEFAULT), $role]);
+            $statement = $pdo->prepare('INSERT INTO users (full_name, phone, email, municipality, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)');
+            $statement->execute([$name, $phone, $email !== '' ? $email : null, $municipality, password_hash($password, PASSWORD_DEFAULT), $role]);
             $userId = (int)$pdo->lastInsertId();
             if ($role === 'driver') {
                 $driver = $pdo->prepare('INSERT INTO driver_profiles (user_id, plate_number, body_number, license_number, toda_name) VALUES (?, ?, ?, ?, ?)');
@@ -258,7 +264,7 @@ try {
             if ((string)$error->getCode() === '23000') throw new ApiError(409, 'That phone number or email is already registered.');
             throw $error;
         }
-        $user = ['id' => $userId, 'full_name' => $name, 'phone' => $phone, 'email' => $email ?: null, 'role' => $role];
+        $user = ['id' => $userId, 'full_name' => $name, 'phone' => $phone, 'email' => $email ?: null, 'role' => $role, 'municipality' => $municipality];
         $token = issueToken($pdo, $userId);
         respond(['user' => publicUser($user), 'token' => $token], 201);
     }
@@ -269,7 +275,7 @@ try {
         $password = (string)($input['password'] ?? '');
         if ($identifier === '' || $password === '') throw new ApiError(422, 'Enter your phone or email and password.');
         $pdo = database($config);
-        $statement = $pdo->prepare('SELECT id, full_name, phone, email, password_hash, role, is_active FROM users WHERE phone = :identifier OR email = :email LIMIT 1');
+        $statement = $pdo->prepare('SELECT id, full_name, phone, email, municipality, avatar_data, password_hash, role, is_active FROM users WHERE phone = :identifier OR email = :email LIMIT 1');
         $statement->execute(['identifier' => $identifier, 'email' => strtolower($identifier)]);
         $user = $statement->fetch();
         if (!$user || !(int)$user['is_active'] || !password_verify($password, $user['password_hash'])) {
@@ -281,7 +287,8 @@ try {
 
     if ($segments === ['auth', 'me'] && $method === 'GET') {
         if (empty($_SERVER['HTTP_AUTHORIZATION'])) respond(['user' => null]);
-        respond(['user' => publicUser(authenticatedUser($config))]);
+        $user = authenticatedUser($config);
+        respond(['user' => publicUser($user + userProfileExtras(database($config), $user['id']))]);
     }
 
     if ($segments === ['auth', 'logout'] && $method === 'POST') {
@@ -695,6 +702,10 @@ try {
             throw new ApiError(409, 'This ride was already accepted or is no longer available.');
         }
         logRideEvent($pdo, $rideId, (int)$user['id'], 'accepted', 'Driver accepted the ride.');
+        $passengerStmt = $pdo->prepare('SELECT passenger_id FROM rides WHERE id = ?');
+        $passengerStmt->execute([$rideId]);
+        [$noticeType, $noticeTitle, $noticeMessage] = rideNotificationForPassenger('accepted');
+        notifyUser($pdo, (int)$passengerStmt->fetchColumn(), $noticeType, $noticeTitle, $noticeMessage, (int)$rideId);
         $pdo->commit();
         respond(['ride' => ['id' => (int)$rideId, 'status' => 'accepted']]);
     }
@@ -729,6 +740,11 @@ try {
             if ($stmt->rowCount() !== 1) throw new ApiError(409, 'Ride status changed; refresh and try again.');
             logRideEvent($pdo, $rideId, (int)$user['id'], $next);
             if ($next === 'completed') revokeRideShares($pdo, $rideId);
+            $rideStmt = $pdo->prepare('SELECT passenger_id, final_fare FROM rides WHERE id = ?');
+            $rideStmt->execute([$rideId]);
+            $updated = $rideStmt->fetch();
+            $notice = rideNotificationForPassenger($next, $updated['final_fare'] === null ? null : (float)$updated['final_fare']);
+            if ($notice) notifyUser($pdo, (int)$updated['passenger_id'], $notice[0], $notice[1], $notice[2], (int)$rideId);
             $pdo->commit();
         } catch (Throwable $error) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -755,6 +771,16 @@ try {
         if ($stmt->rowCount() !== 1) throw new ApiError(409, 'This ride cannot be cancelled in its current state.');
         logRideEvent($pdo, (int)$rideId, (int)$user['id'], 'cancelled');
         revokeRideShares($pdo, (int)$rideId);
+        // Tell the other side of the ride.
+        $partiesStmt = $pdo->prepare('SELECT passenger_id, driver_id FROM rides WHERE id = ?');
+        $partiesStmt->execute([$rideId]);
+        $parties = $partiesStmt->fetch();
+        if ($parties['driver_id'] && (int)$parties['driver_id'] !== (int)$user['id']) {
+            notifyUser($pdo, (int)$parties['driver_id'], 'ride_cancelled', 'Ride cancelled', $user['role'] === 'admin' ? 'An admin cancelled the ride you accepted.' : 'The passenger cancelled the ride you accepted.', (int)$rideId);
+        }
+        if ((int)$parties['passenger_id'] !== (int)$user['id']) {
+            notifyUser($pdo, (int)$parties['passenger_id'], 'ride_cancelled', 'Ride cancelled', $user['role'] === 'admin' ? 'An admin cancelled your ride. You can book again from Home.' : 'Your driver cancelled the ride. You can book again from Home.', (int)$rideId);
+        }
         respond(['ride' => ['id' => (int)$rideId, 'status' => 'cancelled']]);
     }
 
@@ -779,6 +805,8 @@ try {
         }
         respond(['ok' => true], 201);
     }
+
+    handleFeatureRoutes($segments, $method, $config);
 
     throw new ApiError(404, 'Endpoint not found.');
 } catch (ApiError $error) {

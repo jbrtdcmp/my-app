@@ -1,24 +1,21 @@
-import { useEffect, useState } from 'react';
-import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconHome, IconLocation, IconMap, IconMegaphone, IconPackage, IconProfile, IconSearch, IconShield, IconStar, IconWeather } from '../components/Icons';
+import { useEffect, useMemo, useState } from 'react';
+import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconMap, IconProfile, IconSearch, IconShield } from '../components/Icons';
 import { DataTable, ErrorState, StatCard as SharedStatCard, StatusBadge } from '../components/ui';
 import { getAdminDrivers, getAdminSos, getAdminSummary, getEmergencyContacts, resolveSos, updateEmergencyContact, verifyDriver, type AdminSummary, type EmergencyContact, type SosEvent } from '../services/api';
+import AlertComposer from './admin/AlertComposer';
+import FareEditor from './admin/FareEditor';
+import PasswordResets from './admin/PasswordResets';
+
+const DRIVERS_PER_PAGE = 8;
 
 export type AdminTab = 'overview' | 'drivers' | 'fares' | 'alerts' | 'sos';
 
 const TAB_LABELS: { id: AdminTab; label: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
   { id: 'overview', label: 'Overview', Icon: IconAdmin },
   { id: 'drivers', label: 'Drivers', Icon: IconDriver },
-  { id: 'fares', label: 'Fare Zones', Icon: IconMap },
+  { id: 'fares', label: 'Fares', Icon: IconMap },
   { id: 'alerts', label: 'Alerts', Icon: IconAlerts },
   { id: 'sos', label: 'SOS', Icon: IconShield },
-];
-
-const ALERT_TYPE_CHOICES: { id: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
-  { id: 'community', Icon: IconHome },
-  { id: 'weather', Icon: IconWeather },
-  { id: 'market', Icon: IconPackage },
-  { id: 'fiesta', Icon: IconStar },
-  { id: 'port', Icon: IconLocation },
 ];
 
 function BarChart({ data }: { data: { name: string; rides: number; drivers: number }[] }) {
@@ -43,88 +40,6 @@ function BarChart({ data }: { data: { name: string; rides: number; drivers: numb
   );
 }
 
-function FareZoneEditor() {
-  const [fares, setFares] = useState([
-    { muni: 'Carrascal', zone: 'Poblacion', base: 15, edit: false },
-    { muni: 'Carrascal', zone: 'Zone A', base: 25, edit: false },
-    { muni: 'Cantilan', zone: 'Poblacion', base: 15, edit: false },
-    { muni: 'Cantilan', zone: 'Zone A', base: 25, edit: false },
-    { muni: 'Madrid', zone: 'Poblacion', base: 15, edit: false },
-    { muni: 'Carmen', zone: 'Poblacion', base: 15, edit: false },
-    { muni: 'Lanuza', zone: 'Poblacion', base: 15, edit: false },
-    { muni: 'Lanuza', zone: 'Mountain Zone', base: 50, edit: false },
-  ]);
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-ink-soft mb-4">Edit base fares per municipality zone. Changes apply immediately to all new bookings.</p>
-      {fares.map((f, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-xl bg-warm p-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-ink">{f.muni}</p>
-            <p className="text-xs text-ink-soft">{f.zone}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-ink-soft">₱</span>
-            <input
-              type="number"
-              value={f.base}
-              aria-label={`${f.muni} ${f.zone} base fare`}
-              onChange={e => setFares(prev => prev.map((x, j) => j === i ? { ...x, base: +e.target.value } : x))}
-              className="w-20 text-center font-bold"
-            />
-            <button type="button" className="btn-secondary btn-small">Save</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function AlertComposer() {
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
-  const [muni, setMuni] = useState('all');
-  const [type, setType] = useState('community');
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-ink-soft">Compose and publish community alerts visible to all PASAKJA users in the selected area.</p>
-      <label className="form-field">
-        <span className="field-label">Target area</span>
-        <select value={muni} onChange={e => setMuni(e.target.value)} className="app-select">
-          <option value="all">All municipalities</option>
-          <option>Carrascal</option><option>Cantilan</option>
-          <option>Madrid</option><option>Carmen</option><option>Lanuza</option>
-        </select>
-      </label>
-      <div className="form-field">
-        <span className="field-label">Alert type</span>
-        <div className="flex flex-wrap gap-2">
-          {ALERT_TYPE_CHOICES.map(({ id, Icon }) => (
-            <button key={id} type="button" onClick={() => setType(id)} aria-pressed={type === id} className="app-chip capitalize">
-              <Icon size={16}/>{id}
-            </button>
-          ))}
-        </div>
-      </div>
-      <label className="form-field">
-        <span className="field-label">Title</span>
-        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Alert title" className="app-input"/>
-      </label>
-      <label className="form-field">
-        <span className="field-label">Message</span>
-        <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Alert message" className="app-textarea resize-none"/>
-      </label>
-      <button
-        className="btn-primary btn-large w-full"
-      >
-        <IconMegaphone size={16} className="inline-block mr-2"/>Publish Alert
-      </button>
-    </div>
-  );
-}
-
 export default function AdminDashboard({ initialTab = 'overview', onTabChange }: { initialTab?: AdminTab; onTabChange: (tab: AdminTab) => void }) {
   const [tab, setTab] = useState<AdminTab>(initialTab);
 
@@ -134,6 +49,18 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
   const [drivers, setDrivers] = useState<Awaited<ReturnType<typeof getAdminDrivers>>>([]);
   const [driversError, setDriversError] = useState('');
   const [updatingDriver, setUpdatingDriver] = useState<number | null>(null);
+  const [driverQuery, setDriverQuery] = useState('');
+  const [driverPage, setDriverPage] = useState(1);
+  // Search matches name, phone, plate, body number, TODA or status.
+  const filteredDrivers = useMemo(() => {
+    const query = driverQuery.trim().toLowerCase();
+    if (!query) return drivers;
+    return drivers.filter(driver => [driver.full_name, driver.phone, driver.plate_number, driver.body_number, driver.toda_name, driver.verification_status]
+      .some(value => String(value ?? '').toLowerCase().includes(query)));
+  }, [drivers, driverQuery]);
+  const driverPageCount = Math.max(1, Math.ceil(filteredDrivers.length / DRIVERS_PER_PAGE));
+  const currentDriverPage = Math.min(driverPage, driverPageCount);
+  const pageDrivers = filteredDrivers.slice((currentDriverPage - 1) * DRIVERS_PER_PAGE, currentDriverPage * DRIVERS_PER_PAGE);
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
   const [exportError, setExportError] = useState('');
   const exportReport = async (format: 'pdf' | 'excel') => {
@@ -249,6 +176,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
         {tab === 'overview' && (
           <>
             {summaryError && <ErrorState message={summaryError}/>}
+            <PasswordResets/>
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <SharedStatCard icon={<IconDriver size={20}/>} label="Total drivers" value={summary?.total_drivers ?? '—'}/>
@@ -311,34 +239,37 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
               <label className="relative min-w-0 flex-1 basis-48">
                 <span className="sr-only">Search drivers</span>
                 <IconSearch size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft"/>
-                <input placeholder="Search drivers" className="app-input pl-8"/>
+                <input type="search" value={driverQuery} onChange={event => { setDriverQuery(event.target.value); setDriverPage(1); }} placeholder="Search name, phone, plate or TODA" className="app-input pl-8"/>
               </label>
             </div>
             {driversError && <ErrorState className="mx-4 my-3" message={driversError}/>}
-            <DataTable columns={driverColumns} rows={drivers} getRowKey={driver => driver.id}/>
-            {drivers.length === 0 && <p className="p-4 text-center text-sm text-ink-soft">No driver accounts found.</p>}
+            <DataTable columns={driverColumns} rows={pageDrivers} getRowKey={driver => driver.id}/>
+            {filteredDrivers.length === 0 && <p className="p-4 text-center text-sm text-ink-soft">{drivers.length === 0 ? 'No driver accounts found.' : `No drivers match “${driverQuery.trim()}”.`}</p>}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-ink-soft">
-              <span>{drivers.length} registered drivers</span>
-              <div className="flex gap-2">
-                <button type="button" className="btn-quiet btn-small">Prev</button>
-                <button type="button" className="btn-secondary btn-small" aria-current="page">1</button>
-                <button type="button" className="btn-quiet btn-small">2</button>
-                <button type="button" className="btn-quiet btn-small">Next</button>
-              </div>
+              <span aria-live="polite">
+                {filteredDrivers.length === 0 ? `${drivers.length} registered drivers` : `Showing ${(currentDriverPage - 1) * DRIVERS_PER_PAGE + 1}–${Math.min(currentDriverPage * DRIVERS_PER_PAGE, filteredDrivers.length)} of ${filteredDrivers.length}${driverQuery.trim() ? ` matching (${drivers.length} total)` : ' drivers'}`}
+              </span>
+              {driverPageCount > 1 && <nav className="flex gap-2" aria-label="Driver pages">
+                <button type="button" disabled={currentDriverPage === 1} onClick={() => setDriverPage(currentDriverPage - 1)} className="btn-quiet btn-small">Prev</button>
+                {Array.from({ length: driverPageCount }, (_, index) => index + 1).map(page => (
+                  <button key={page} type="button" onClick={() => setDriverPage(page)} aria-current={page === currentDriverPage ? 'page' : undefined} className={page === currentDriverPage ? 'btn-secondary btn-small' : 'btn-quiet btn-small'}>{page}</button>
+                ))}
+                <button type="button" disabled={currentDriverPage === driverPageCount} onClick={() => setDriverPage(currentDriverPage + 1)} className="btn-quiet btn-small">Next</button>
+              </nav>}
             </div>
           </div>
         )}
 
         {tab === 'fares' && (
           <div className="app-card">
-            <h3 className="section-title mb-1">Fare Zone Editor</h3>
-            <FareZoneEditor/>
+            <h3 className="section-title mb-1">Fares</h3>
+            <FareEditor/>
           </div>
         )}
 
         {tab === 'alerts' && (
           <div className="app-card">
-            <h3 className="section-title">Community Alert Composer</h3>
+            <h3 className="section-title">Community alerts</h3>
             <AlertComposer/>
           </div>
         )}
