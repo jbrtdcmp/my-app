@@ -28,8 +28,6 @@ const SERVICE_TILES: Record<RideType, { short: string; icon: ReactNode }> = {
   group: { short: 'Group', icon: <IconUsers size={24}/> },
 };
 
-const SHEET_EXPANDED_HEIGHT = 470;
-const SHEET_COLLAPSED_HEIGHT = 196;
 
 const peso = (value: number) => `₱${Number.isInteger(value) ? value : value.toFixed(2)}`;
 
@@ -326,7 +324,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden relative">
       {/* Map */}
-      <div className={`passenger-map-layer absolute inset-0 transition-all duration-500 ${sheetExpanded ? 'passenger-map-layer--expanded' : 'passenger-map-layer--collapsed'}`}>
+      <div className={`passenger-map-layer absolute inset-x-0 top-0 transition-all duration-500 ${sheetExpanded ? 'passenger-map-layer--expanded' : 'passenger-map-layer--collapsed'}`}>
         <Map
           activeMunicipality={pickupMuni.id}
           className="h-full"
@@ -379,7 +377,7 @@ export default function PassengerHome({ onBookingStart, onResumeRide }: Passenge
       </div>
 
       {/* Booking sheet */}
-      <div className="booking-sheet" style={{ height: sheetExpanded ? SHEET_EXPANDED_HEIGHT : SHEET_COLLAPSED_HEIGHT, maxHeight: '85vh' }}>
+      <div className={`booking-sheet ${sheetExpanded ? 'booking-sheet--expanded' : 'booking-sheet--collapsed'}`}>
         <div
           role="button"
           tabIndex={0}

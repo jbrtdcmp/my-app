@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import L, { type LatLngExpression } from 'leaflet';
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { locationUnavailableReason } from '../services/platform';
 
 export interface MapPoint {
   lat: number;
@@ -104,8 +105,9 @@ function LocateControl({ onLocationFound }: { onLocationFound?: (point: MapPoint
   const [error, setError] = useState('');
 
   const locate = () => {
-    if (!navigator.geolocation) {
-      setError('Location is not available in this browser.');
+    const unavailable = locationUnavailableReason();
+    if (unavailable) {
+      setError(unavailable);
       return;
     }
     setError('');

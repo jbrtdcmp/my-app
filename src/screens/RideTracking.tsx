@@ -149,7 +149,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   const displayStatus = snapshot?.status === 'in_progress' ? 'in-progress' : 'arriving';
 
   return <div className="flex-1 flex flex-col h-full relative overflow-hidden">
-    <div className={`ride-tracking-map absolute inset-x-0 top-0 md:bottom-0 ${sheetExpanded ? 'ride-tracking-map--expanded' : 'ride-tracking-map--collapsed'}`}>
+    <div className={`ride-tracking-map absolute inset-x-0 top-0 lg:bottom-0 ${sheetExpanded ? 'ride-tracking-map--expanded' : 'ride-tracking-map--collapsed'}`}>
       <Map activeMunicipality={snapshot?.municipality?.toLowerCase() || 'carrascal'} showRoute className="h-full" rideState={displayStatus} driverPosition={displayPosition} driverHeading={displayPosition?.heading} routeGeometry={snapshot?.route} routeApproximate={Boolean(snapshot?.route_fallback)}
         pickupPosition={snapshot?.status !== 'in_progress' ? targetPosition : null}
         destinationPosition={snapshot?.status === 'in_progress' ? targetPosition : null}/>
@@ -158,13 +158,13 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
       {snapshot?.stale && snapshot.position && <div role="status" className="absolute left-3 right-3 top-28 rounded-xl bg-warning/10 px-3 py-2 text-center text-sm text-ink">Driver’s signal is weak. Showing last received location.</div>}
     </div>
 
-    <div className={`ride-tracking-sheet absolute left-0 right-0 bottom-0 bg-surface rounded-t-3xl shadow-float md:absolute md:top-0 md:right-0 md:left-auto md:rounded-none md:border-l md:border-border overflow-y-auto ${sheetExpanded ? 'ride-tracking-sheet--expanded' : 'ride-tracking-sheet--collapsed'}`}>
+    <div className={`ride-tracking-sheet absolute left-0 right-0 bottom-0 bg-surface rounded-t-3xl shadow-float lg:absolute lg:top-0 lg:right-0 lg:left-auto lg:rounded-none lg:border-l lg:border-border overflow-y-auto ${sheetExpanded ? 'ride-tracking-sheet--expanded' : 'ride-tracking-sheet--collapsed'}`}>
       <div role="button" tabIndex={0} aria-label={sheetExpanded ? 'Collapse ride details' : 'Expand ride details'} aria-expanded={sheetExpanded}
         onPointerDown={event => { dragStartY.current = event.clientY; event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerUp={event => { if (dragStartY.current === null) return; const distance = event.clientY - dragStartY.current; dragStartY.current = null; if (Math.abs(distance) > 35) { didSwipe.current = true; setSheetExpanded(distance < 0); } }}
         onPointerCancel={() => { dragStartY.current = null; }}
         onClick={() => { if (didSwipe.current) { didSwipe.current = false; return; } setSheetExpanded(value => !value); }}
-        onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSheetExpanded(value => !value); } }} className="ride-tracking-sheet__handle md:hidden"><span/></div>
+        onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setSheetExpanded(value => !value); } }} className="ride-tracking-sheet__handle lg:hidden"><span/></div>
       <div className="px-5 pb-6 space-y-4">
         {trackingError && <p role="alert" className="notice notice--danger">{trackingError}</p>}
         {location.error && isDriver && <div role="alert" className="notice notice--danger flex-col"><p>{location.error}</p><button type="button" onClick={location.retry} className="text-link">Retry location access</button></div>}

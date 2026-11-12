@@ -115,7 +115,7 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
 
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
-      <div className="space-y-4 px-4 pt-5">
+      <div className="page-width space-y-4 px-4 pt-5">
         {/* Online status */}
         <section className={`driver-status-card ${isOnline ? 'driver-status-card--online' : ''}`}>
           <div className="min-w-0 flex-1">

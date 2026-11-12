@@ -19,6 +19,17 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 
 Run `npm run dev`. Vite prints two addresses: `Local` (`http://localhost:5173`) for this computer and `Network` (`http://<your Wi-Fi IP>:5173`) for phones or laptops on the same Wi-Fi. The same accounts work on both, because every API request goes through the dev server instead of straight to Apache. Your Wi-Fi IP can change after a restart, so use the `Network` line Vite prints each time. If another device can't open the page, allow Node.js through Windows Firewall on private networks.
 
+### Testing GPS on a phone
+
+Phones only share location with secure `https://` pages, so on the plain `http://` Network address the app shows "Location is blocked because this link is not secure." To test GPS on a phone:
+
+1. Stop `npm run dev` and run `npm run dev:phone` instead. It serves the same app over `https://` with a self-signed certificate.
+2. On the phone, open the `Network` address Vite prints, starting with `https://`.
+3. The browser warns that the connection isn't private. This is expected for a local test certificate. On iPhone Safari tap **Show Details**, then **visit this website**. On Android Chrome tap **Advanced**, then **Proceed**.
+4. Allow location when the app asks. On iPhone, also check **Settings → Privacy & Security → Location Services → Safari Websites** is set to **While Using the App**.
+
+A deployed copy on a real `https://` domain doesn't need any of this.
+
 A production build (`npm run build`) served by Apache has no dev server in front of it. For that case, set `VITE_API_BASE_URL` to the full API URL and add the page's address to `allowed_origins` in `api/config.local.php`.
 
 The seed script is for local testing only and refuses web requests. It reads the database configuration from `api/config.local.php`, never writes passwords to the console, and leaves existing accounts unchanged. Remove the demo accounts before deploying this database publicly.

@@ -40,8 +40,15 @@
   --driver-sheet-width: 400px;
   --ride-sheet-expanded-height: 65vh;
   --ride-sheet-collapsed-height: 244px;
-  --passenger-map-expanded-bottom: 446px;
-  --passenger-map-collapsed-bottom: 172px;
+  /* Passenger booking panel: a fixed height, but never more than a share of the
+     screen, so the map stays visible on short phones (iPhone Safari shows ~664px). */
+  --booking-sheet-expanded-height: min(470px, 58%);
+  --booking-sheet-collapsed-height: min(196px, 40%);
+  --passenger-map-expanded-bottom: calc(var(--booking-sheet-expanded-height) - var(--sheet-radius));
+  --passenger-map-collapsed-bottom: calc(var(--booking-sheet-collapsed-height) - var(--sheet-radius));
+  /* Widest a page's content gets before it is centred. */
+  --content-max-width: 880px;
+  --content-max-width-wide: 1200px;
   --public-trip-min-height: 90vh;
   --public-map-min-height: 300px;
   --onboarding-visual-max-height: 52vh;

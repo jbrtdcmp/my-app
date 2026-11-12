@@ -33,7 +33,7 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
 
   return (
     <div className="flex-1 overflow-y-auto bg-warm">
-      <div className="px-4 pt-4 pb-4 space-y-3">
+      <div className="page-width px-4 pt-4 pb-4 space-y-3">
         <p className="text-sm font-semibold text-ink-soft" aria-live="polite">{filtered.length} {filtered.length === 1 ? 'ride' : 'rides'}</p>
         <div className="chip-row" aria-label="Filter by status">
           {STATUS_FILTERS.map(filter => (
@@ -51,7 +51,7 @@ export default function Bookings({ onResumeRide, canResume = false }: { onResume
         </div>
       </div>
       {error && <ErrorState className="mx-4 mb-3" message={error}/>}
-      <div className="px-4 pb-6 space-y-3">
+      <div className="page-width px-4 pb-6 space-y-3">
         {loading ? (
           <div className="space-y-3" aria-label="Loading ride history">
             <Skeleton className="h-24 w-full rounded-2xl"/><Skeleton className="h-24 w-full rounded-2xl"/>

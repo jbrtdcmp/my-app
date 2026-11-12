@@ -9,9 +9,21 @@ export class LocationPermissionError extends Error {
   constructor(message: string) { super(message); this.name = 'LocationPermissionError'; }
 }
 
+// Phones (iPhone Safari especially) only share GPS with https:// pages or localhost.
+// On a plain http:// Wi-Fi address they refuse even when Location is switched on,
+// so say that instead of blaming the phone's settings.
+export const INSECURE_LOCATION_MESSAGE = 'Location is blocked because this link is not secure. Open PASAKJA with an https:// address to use GPS.';
+
+export function locationUnavailableReason(): string | null {
+  if (!window.isSecureContext) return INSECURE_LOCATION_MESSAGE;
+  if (!('geolocation' in navigator)) return 'Location is not available on this device.';
+  return null;
+}
+
 export function watchDeviceLocation(onPoint: (point: DevicePoint) => void, onError: (error: Error) => void): () => void {
-  if (!('geolocation' in navigator)) {
-    onError(new LocationPermissionError('Location is not available on this device.'));
+  const unavailable = locationUnavailableReason();
+  if (unavailable) {
+    onError(new LocationPermissionError(unavailable));
     return () => {};
   }
   const watchId = navigator.geolocation.watchPosition(
@@ -22,7 +34,7 @@ export function watchDeviceLocation(onPoint: (point: DevicePoint) => void, onErr
       accuracy: position.coords.accuracy,
     }),
     error => onError(new LocationPermissionError(error.code === error.PERMISSION_DENIED
-      ? 'Location permission is off. Enable it in your device settings and retry.'
+      ? 'Location is blocked for this site. Allow location for your browser in the phone settings and for this site in the browser, then retry.'
       : 'Could not get your location. Check your signal and retry.')),
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 12000 },
   );
@@ -30,11 +42,12 @@ export function watchDeviceLocation(onPoint: (point: DevicePoint) => void, onErr
 }
 
 export async function getDeviceLocation(): Promise<DevicePoint | null> {
+  if (!window.isSecureContext) throw new LocationPermissionError(`${INSECURE_LOCATION_MESSAGE} You can still send the SOS without location.`);
   if (!('geolocation' in navigator)) return null;
   return new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(
     position => resolve({ lat: position.coords.latitude, lng: position.coords.longitude, heading: position.coords.heading, accuracy: position.coords.accuracy }),
     error => reject(new LocationPermissionError(error.code === error.PERMISSION_DENIED
-      ? 'Location permission is off. You can still send the SOS without location.'
+      ? 'Location is blocked for this site. You can still send the SOS without location.'
       : 'Could not get your location. You can still send the SOS without location.')),
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 },
   ));

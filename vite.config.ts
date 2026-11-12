@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'node:path'
 
 import siteConfiguration from './.figma/make/site.json'
@@ -10,6 +11,9 @@ import siteConfiguration from './.figma/make/site.json'
 export default defineConfig(({ mode }) => {
   // `vite build --mode development` emits inline sourcemaps.
   const emitSourcemaps = mode === 'development'
+  // `npm run dev:phone` serves https:// with a self-signed certificate, because
+  // phones only share GPS with secure pages. Plain `npm run dev` stays http://.
+  const phoneHttps = mode === 'phone'
 
   // Forward /api/* to the XAMPP API. The browser then only talks to the address
   // it opened (localhost or this computer's Wi-Fi IP), so no CORS list is needed
@@ -32,6 +36,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
 react(),
       tailwindcss(),
+      ...(phoneHttps ? [basicSsl({ name: 'pasakja-dev' })] : []),
       figmaSiteConfiguration(siteConfiguration),
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),

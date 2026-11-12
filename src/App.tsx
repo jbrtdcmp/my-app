@@ -108,7 +108,7 @@ function RoleBottomTabBar({ activeScreen, onNavigate, role }: {
 // Back during a ride, and the admin's active-SOS badge.
 function RoleTopBar({ title, onBack, onOpenSos, role, sosCount }: { title: string; onBack?: () => void; onOpenSos: () => void; role: UserRole; sosCount: number }) {
   return (
-    <div className="md:hidden"><TopBar title={title}
+    <div className="lg:hidden"><TopBar title={title}
       leading={onBack && <button type="button" onClick={onBack} aria-label="Back" className="app-navigation-bar__action"><IconArrowLeft size={20}/></button>}
       trailing={role === 'admin' && sosCount > 0 && <button type="button" onClick={onOpenSos} aria-label={`${sosCount} active SOS alerts`} className="app-navigation-bar__action text-danger"><IconShield size={20}/><span className="app-alert-count">{sosCount}</span></button>}/>
     </div>
@@ -354,7 +354,7 @@ export default function App() {
 
   return (
     <AppShell
-      navigation={<div className="hidden md:flex">
+      navigation={<div className="hidden lg:flex">
         <RoleSidebar
           activeScreen={activeScreen}
           onNavigate={navigateScreen}
@@ -376,7 +376,7 @@ export default function App() {
         />
 
         {/* Desktop header: the sidebar holds navigation and the SOS link. */}
-        <div className="app-desktop-header hidden md:flex">
+        <div className="app-desktop-header hidden lg:flex">
           <div className="flex flex-col">
             <h1 className="app-desktop-header__title">{rideHeaderTitle(rideState, activeScreen)}</h1>
             <span className="app-desktop-header__subtitle">CarCanMadCarLan · Surigao del Sur</span>
@@ -384,7 +384,7 @@ export default function App() {
         </div>
       </>}
       footer={rideState === 'idle' ? (
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <RoleBottomTabBar activeScreen={activeScreen} onNavigate={navigateScreen} role={role}/>
         </div>
       ) : undefined}
