@@ -10,6 +10,7 @@ import {
 } from '../components/Icons';
 import { Logo } from '../components/Logo';
 import { ApiError, requestPasswordReset, type AuthPayload } from '../services/api';
+import { LegalSheet, type LegalDocument } from './Legal';
 import { ID_PHOTO_SIZE, resizeImageFile } from '../services/images';
 import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
@@ -128,6 +129,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
   const [showForgot, setShowForgot] = useState(false);
   const [vehicleType, setVehicleType] = useState('tricycle');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocument | null>(null);
   const fieldsRef = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -574,7 +576,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
                 aria-invalid={Boolean(fieldErrors.acceptTerms)}
                 aria-describedby={fieldErrors.acceptTerms ? 'auth-acceptTerms-error' : undefined}
               />
-              <span>I have read and agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Use</a> and the <a href="/privacy" target="_blank" rel="noopener">Privacy Notice</a>.</span>
+              <span>I have read and agree to the <button type="button" className="auth-inline-link" onClick={event => { event.preventDefault(); setLegalDoc('terms'); }}>Terms of Use</button> and the <button type="button" className="auth-inline-link" onClick={event => { event.preventDefault(); setLegalDoc('privacy'); }}>Privacy Notice</button>.</span>
             </label>
             <FieldError id="auth-acceptTerms-error" message={fieldErrors.acceptTerms}/>
           </div>
@@ -588,8 +590,9 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button type="button" className="auth-footer-link" onClick={switchMode}>{mode === 'login' ? 'Sign up' : 'Sign in'}</button>
         </p>
-        <p className="auth-legal-links"><a href="/terms" target="_blank" rel="noopener">Terms of Use</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy Notice</a></p>
+        <p className="auth-legal-links"><button type="button" className="auth-inline-link" onClick={() => setLegalDoc('terms')}>Terms of Use</button> · <button type="button" className="auth-inline-link" onClick={() => setLegalDoc('privacy')}>Privacy Notice</button></p>
       </form>
+      {legalDoc && <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)}/>}
       {showForgot && <ForgotPasswordDialog initialIdentifier={form.phone} onClose={() => setShowForgot(false)}/>}
     </AuthLayout>
   );

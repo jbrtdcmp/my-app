@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconAlerts, IconCamera, IconKey, IconLogout, IconProfile } from '../components/Icons';
+import { IconAlerts, IconCamera, IconChevronRight, IconFile, IconKey, IconLogout, IconProfile, IconShield, IconTrash } from '../components/Icons';
+import { LegalSheet, type LegalDocument } from './Legal';
 import { AppBadge, AppButton, AppCard, AppInput, AppSelect, FormField, ListRow } from '../components/ui';
 import SosControl from '../components/SosControl';
 import { LANGUAGES } from '../data';
@@ -52,10 +53,7 @@ function ChangePasswordCard() {
       <h2>Security</h2>
       <AppCard className="profile-layout__card">
         {!open ? (
-          <ListRow>
-            <span className="profile-layout__row-label flex items-center gap-2"><IconKey size={16}/>Password</span>
-            <button type="button" onClick={() => { setOpen(true); setDone(''); }} className="text-link text-sm">Change password</button>
-          </ListRow>
+          <SettingsRow icon={<IconKey size={18}/>} label="Password" hint="Change the password you sign in with" onClick={() => { setOpen(true); setDone(''); }}/>
         ) : (
           <div className="profile-password-form">
             <label className="form-field"><span className="field-label">Current password</span><input type="password" autoComplete="current-password" value={current} onChange={event => setCurrent(event.target.value)} className="app-input"/></label>
@@ -268,10 +266,11 @@ function NotificationsCard({ role }: { role: AppRole }) {
     <section className="profile-layout__section">
       <h2>Notifications</h2>
       <AppCard className="profile-layout__card">
-        <ListRow className={status === 'on' ? 'profile-layout__row--divided' : ''}>
-          <span className="profile-notify__label">
-            <span className="profile-layout__row-label flex items-center gap-2"><IconAlerts size={16}/>Phone notifications</span>
-            <span className="profile-notify__hint">{hint}</span>
+        <ListRow className={`settings-row settings-row--static${status === 'on' ? ' profile-layout__row--divided' : ''}`}>
+          <span className="settings-row__icon"><IconAlerts size={18}/></span>
+          <span className="settings-row__text">
+            <span className="settings-row__label">Phone notifications</span>
+            <span className="settings-row__hint">{hint}</span>
           </span>
           {canToggle && (
             <button
@@ -350,28 +349,40 @@ function DeleteAccountDialog({ role, onCancel, onDeleted }: { role: AppRole; onC
   );
 }
 
+// A tappable settings row: icon, label with a short hint, and an arrow.
+function SettingsRow({ icon, label, hint, onClick, danger = false, divided = false }: {
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  onClick: () => void;
+  danger?: boolean;
+  divided?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick} className={`settings-row${danger ? ' settings-row--danger' : ''}${divided ? ' profile-layout__row--divided' : ''}`}>
+      <span className="settings-row__icon">{icon}</span>
+      <span className="settings-row__text">
+        <span className="settings-row__label">{label}</span>
+        <span className="settings-row__hint">{hint}</span>
+      </span>
+      <IconChevronRight size={18} className="settings-row__chevron"/>
+    </button>
+  );
+}
+
 function PrivacyAccountCard({ role, onAccountDeleted }: { role: AppRole; onAccountDeleted?: () => void }) {
   const [deleting, setDeleting] = useState(false);
+  const [reading, setReading] = useState<LegalDocument | null>(null);
   const canDelete = role !== 'admin' && Boolean(onAccountDeleted);
   return (
     <section className="profile-layout__section">
       <h2>Privacy and account</h2>
       <AppCard className="profile-layout__card">
-        <ListRow className="profile-layout__row--divided">
-          <span className="profile-layout__row-label">Privacy Notice</span>
-          <a href="/privacy" target="_blank" rel="noopener" className="text-link text-sm">Read</a>
-        </ListRow>
-        <ListRow className={canDelete ? 'profile-layout__row--divided' : ''}>
-          <span className="profile-layout__row-label">Terms of Use</span>
-          <a href="/terms" target="_blank" rel="noopener" className="text-link text-sm">Read</a>
-        </ListRow>
-        {canDelete && (
-          <ListRow>
-            <span className="profile-layout__row-label">Delete account</span>
-            <button type="button" onClick={() => setDeleting(true)} className="text-link text-sm text-danger">Delete…</button>
-          </ListRow>
-        )}
+        <SettingsRow icon={<IconShield size={18}/>} label="Privacy Notice" hint="What PASAKJA collects and who can see it" onClick={() => setReading('privacy')} divided/>
+        <SettingsRow icon={<IconFile size={18}/>} label="Terms of Use" hint="Rules for passengers and drivers" onClick={() => setReading('terms')} divided={canDelete}/>
+        {canDelete && <SettingsRow icon={<IconTrash size={18}/>} label="Delete account" hint="Erase your details from PASAKJA" onClick={() => setDeleting(true)} danger/>}
       </AppCard>
+      {reading && <LegalSheet doc={reading} onClose={() => setReading(null)}/>}
       {deleting && onAccountDeleted && <DeleteAccountDialog role={role} onCancel={() => setDeleting(false)} onDeleted={onAccountDeleted}/>}
     </section>
   );

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { IconArrowLeft } from '../components/Icons';
 import { Logo } from '../components/Logo';
 
 // Bump this (and TERMS_VERSION in api/features_service.php) when either document changes,
@@ -112,7 +113,54 @@ function TermsOfUse() {
   </>;
 }
 
-// Public pages at /privacy and /terms, readable without signing in.
+const titleOf = (doc: LegalDocument) => (doc === 'privacy' ? 'Privacy Notice' : 'Terms of Use');
+
+/**
+ * The Privacy Notice or Terms of Use inside the app, over the current screen, with a back
+ * arrow. The phone's Back button closes it too, so nothing opens in another tab and a
+ * half-filled sign-up form stays as it was.
+ */
+export function LegalSheet({ doc, onClose }: { doc: LegalDocument; onClose: () => void }) {
+  const [current, setCurrent] = useState<LegalDocument>(doc);
+  const body = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    // One history entry for the open document (React's development re-run must not add a second).
+    if (!(window.history.state as { legalSheet?: boolean } | null)?.legalSheet) {
+      window.history.pushState({ ...(window.history.state ?? {}), legalSheet: true }, '', window.location.href);
+    }
+    const onBack = () => closeRef.current();
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') window.history.back(); };
+    window.addEventListener('popstate', onBack);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('popstate', onBack); window.removeEventListener('keydown', onKey); };
+  }, []);
+
+  const show = (next: LegalDocument) => { setCurrent(next); body.current?.scrollTo({ top: 0 }); };
+  const other: LegalDocument = current === 'privacy' ? 'terms' : 'privacy';
+
+  return (
+    <div className="legal-sheet" role="dialog" aria-modal="true" aria-labelledby="legal-sheet-title">
+      <div className="legal-sheet__panel">
+        <header className="legal-sheet__header">
+          <button type="button" className="legal-sheet__back" onClick={() => window.history.back()} aria-label="Back"><IconArrowLeft size={20}/></button>
+          <h2 id="legal-sheet-title">{titleOf(current)}</h2>
+        </header>
+        <div ref={body} className="legal-sheet__body">
+          <p className="legal-sheet__date">Effective {EFFECTIVE_DATE}</p>
+          {current === 'privacy' ? <PrivacyNotice/> : <TermsOfUse/>}
+          <div className="legal-sheet__footer">
+            <button type="button" className="legal-sheet__switch" onClick={() => show(other)}>Read the {titleOf(other)}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Public pages at /privacy and /terms, readable without signing in (for links shared outside the app).
 export default function Legal({ doc }: { doc: LegalDocument }) {
   const title = doc === 'privacy' ? 'Privacy Notice' : 'Terms of Use';
   return <main className="legal-page">

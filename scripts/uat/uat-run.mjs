@@ -363,7 +363,7 @@ const scenarios = [
       await A.getByRole('button', { name: 'Done' }).click();
       await signIn(page, UAT_PASSENGER.full, temporary, '/passenger/');
       await tab(page, 'Profile');
-      await page.getByRole('button', { name: 'Change password' }).click();
+      await page.getByRole('button', { name: /Change the password you sign in with/ }).click();
       UAT_PASSENGER.password = 'Uat-passenger-new-2026';
       await page.getByLabel('Current password').fill(temporary);
       await page.getByLabel('New password', { exact: true }).fill(UAT_PASSENGER.password);

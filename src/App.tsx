@@ -329,7 +329,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       if (appState !== 'app') {
-        const authPath = appState === 'onboarding' ? AUTH_PATHS.onboarding : AUTH_PATHS.signIn;
+        const authPath = appState === 'onboarding' ? AUTH_PATHS.onboarding : window.location.pathname === AUTH_PATHS.signUp ? AUTH_PATHS.signUp : AUTH_PATHS.signIn;
         window.history.replaceState({ role: null, routePath: authPath }, '', authPath);
         return;
       }
