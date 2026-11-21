@@ -83,6 +83,15 @@ check('a landline keeps only its digits', normalizePhilippinePhone('(086) 212-34
 check('a mobile number is checked in every stored form', phoneVariants('+639171234567') === ['+639171234567', '09171234567', '639171234567', '9171234567']);
 check('other numbers are checked as they are', phoneVariants('0862123456') === ['0862123456']);
 
+// Sign-in limits
+check('four recent failures still allow a try', attemptWaitSeconds([1000, 1100, 1200, 1300], 1400, 5, 900) === 0);
+check('the sixth try within 15 minutes waits until the oldest failure is 15 minutes old', attemptWaitSeconds([1000, 1100, 1200, 1300, 1400], 1500, 5, 900) === 400);
+check('failures older than 15 minutes no longer count', attemptWaitSeconds([100, 1100, 1200, 1300, 1400], 1500, 5, 900) === 0);
+check('with more failures than the limit, the wait follows the one that keeps it over', attemptWaitSeconds([1000, 1050, 1100, 1200, 1300, 1400], 1500, 5, 900) === 450);
+check('a wait is shown in whole minutes', waitText(61) === '2 minutes' && waitText(30) === '1 minute');
+check('attempts on 0917…, 917… and +63917… count against one account', attemptIdentifier('0917 123 4567') === '+639171234567' && attemptIdentifier('9171234567') === '+639171234567');
+check('attempts by email ignore letter case', attemptIdentifier(' Juan@Email.com ') === 'juan@email.com');
+
 // Suspension reasons
 check('a suspension reason is trimmed and kept', validatedSuspensionReason("  Repeated   complaints \n") === 'Repeated complaints');
 $tooShort = false;
@@ -97,6 +106,8 @@ check('a reason longer than 255 characters is refused', $tooLong);
 check('profile details are cleaned up', !$errors && $account === ['name' => 'Juan Dela Cruz', 'phone' => '+639171234567', 'email' => 'juan@email.com', 'municipality' => 'Madrid'], json_encode($account));
 [$account, $errors] = validateAccountDetails(['name' => 'Ana Santos', 'phone' => '+639181234567', 'email' => '', 'municipality' => '']);
 check('a blank email and home town are saved as empty', !$errors && $account['email'] === null && $account['municipality'] === null);
+[$account, $errors] = validateAccountDetails(['name' => ['Juan'], 'phone' => ['0917'], 'email' => 'juan@email.com']);
+check('a list where text belongs is refused, not saved as "Array"', isset($errors['name'], $errors['phone']) && $account['name'] === '', json_encode($errors));
 [, $errors] = validateAccountDetails(['name' => 'A', 'phone' => '12', 'email' => 'not-an-email', 'municipality' => 'Manila']);
 check('a bad name, phone, email and town are each reported', array_keys($errors) === ['name', 'phone', 'email', 'municipality'], json_encode($errors));
 

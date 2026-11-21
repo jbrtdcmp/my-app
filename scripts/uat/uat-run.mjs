@@ -86,7 +86,7 @@ const scenarios = [
       expect(new URL(page.url()).pathname === '/sign-in', 'left the sign-in page');
       return { actual: 'Access refused with “We couldn’t sign you in with those details”; stayed on Sign in.', evidence: [await shot(page, 'UAT-02', 'wrong-password')] };
     } },
-  { id: 'UAT-03', feature: 'Passenger registration', role: 'Passenger', steps: 'Open Sign up, choose Passenger, fill in name, phone, town and password, tap Create account.', expected: 'A passenger account is created with the chosen town and the user is signed in.',
+  { id: 'UAT-03', feature: 'Passenger registration', role: 'Passenger', steps: 'Open Sign up, choose Passenger, fill in name, phone, town and password, tick the Terms and Privacy box, tap Create account.', expected: 'A passenger account is created with the chosen town and the user is signed in.',
     run: async () => {
       await P.goto(`${BASE}/sign-up`, { waitUntil: 'domcontentloaded' });
       await P.locator('input#auth-name').fill(UAT_PASSENGER.name);
@@ -95,6 +95,7 @@ const scenarios = [
       await P.locator('input#auth-password').fill(UAT_PASSENGER.password);
       await P.locator('input#auth-confirmPassword').fill(UAT_PASSENGER.password);
       const form = await shot(P, 'UAT-03', 'signup-form');
+      await P.locator('.auth-consent input[type="checkbox"]').check();
       await P.getByRole('button', { name: 'Create account' }).click();
       await P.waitForURL(url => url.pathname.startsWith('/passenger/'), { timeout: 20000 });
       const account = await login(UAT_PASSENGER.full, UAT_PASSENGER.password);
@@ -102,7 +103,7 @@ const scenarios = [
       state.passengerToken = account.token;
       return { actual: `Account created (phone saved as ${account.user.phone}, town Carrascal) and signed in to Home.`, evidence: [form, await shot(P, 'UAT-03', 'signed-in')] };
     } },
-  { id: 'UAT-04', feature: 'Driver registration with license photo', role: 'Driver', steps: 'Open Sign up, choose Driver, fill in details, plate, body number, TODA, license number, upload a license photo, tap Create account.', expected: 'A driver account is created as “pending” with the license photo saved for admin review.',
+  { id: 'UAT-04', feature: 'Driver registration with license photo', role: 'Driver', steps: 'Open Sign up, choose Driver, fill in details, plate, body number, TODA, license number, upload a license photo, tick the Terms and Privacy box, tap Create account.', expected: 'A driver account is created as “pending” with the license photo saved for admin review.',
     run: async () => {
       const art = await (await browser.newContext({ viewport: { width: 1200, height: 760 } })).newPage();
       await art.setContent(`<body style="margin:0;font:28px sans-serif;background:#e8f1f8"><div style="margin:40px;padding:40px;border:4px solid #1F5F8B;border-radius:24px;background:#fff;height:560px"><h1 style="margin:0 0 20px;color:#1F5F8B">DRIVER'S LICENSE (SAMPLE)</h1><p>Name: <b>UAT DRIVER</b></p><p>License No.: <b>${UAT_DRIVER.license}</b></p><p style="color:#B03535">TEST IMAGE ONLY — NOT A REAL ID</p></div></body>`);
@@ -122,6 +123,7 @@ const scenarios = [
       await ND.locator('img.auth-photo-preview').waitFor();
       await ND.locator('.auth-driver-section').scrollIntoViewIfNeeded();
       const form = await shot(ND, 'UAT-04', 'driver-signup-form');
+      await ND.locator('.auth-consent input[type="checkbox"]').check();
       await ND.getByRole('button', { name: 'Create account' }).click();
       await ND.waitForURL(url => url.pathname.startsWith('/driver/'), { timeout: 30000 });
       await tab(ND, 'Profile');
@@ -361,7 +363,7 @@ const scenarios = [
       await A.getByRole('button', { name: 'Done' }).click();
       await signIn(page, UAT_PASSENGER.full, temporary, '/passenger/');
       await tab(page, 'Profile');
-      await page.getByRole('button', { name: 'Change password' }).click();
+      await page.getByRole('button', { name: /Change the password you sign in with/ }).click();
       UAT_PASSENGER.password = 'Uat-passenger-new-2026';
       await page.getByLabel('Current password').fill(temporary);
       await page.getByLabel('New password', { exact: true }).fill(UAT_PASSENGER.password);

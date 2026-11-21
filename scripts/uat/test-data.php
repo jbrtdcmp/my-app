@@ -14,6 +14,10 @@ if (($argv[1] ?? '') === 'snapshot') {
         'max_log_id' => (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM admin_activity_logs')->fetchColumn(),
         'max_notification_id' => (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM notifications')->fetchColumn(),
         'max_ride_id' => (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM rides')->fetchColumn(),
+        // Sign-in attempts made by the test run (so repeated runs don't hit the sign-up limit).
+        'max_attempt_id' => (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM auth_attempts')->fetchColumn(),
+        // Accounts a test creates and then deletes lose their +63999 number ("deleted-<id>").
+        'max_user_id' => (int)$pdo->query('SELECT COALESCE(MAX(id), 0) FROM users')->fetchColumn(),
     ];
     file_put_contents($file, json_encode($snapshot));
     echo "snapshot saved: logs<= {$snapshot['max_log_id']}, notifications<= {$snapshot['max_notification_id']}, rides<= {$snapshot['max_ride_id']}\n";
@@ -22,7 +26,8 @@ if (($argv[1] ?? '') === 'snapshot') {
 
 if (($argv[1] ?? '') === 'restore') {
     $snapshot = json_decode(file_get_contents($file), true);
-    $testUsers = $pdo->query("SELECT id FROM users WHERE phone LIKE '+63999%'")->fetchAll(PDO::FETCH_COLUMN);
+    $deletedDuringTest = isset($snapshot['max_user_id']) ? " OR (phone LIKE 'deleted-%' AND id > " . (int)$snapshot['max_user_id'] . ')' : '';
+    $testUsers = $pdo->query("SELECT id FROM users WHERE phone LIKE '+63999%'" . $deletedDuringTest)->fetchAll(PDO::FETCH_COLUMN);
     $in = $testUsers ? implode(',', array_map('intval', $testUsers)) : '0';
     $pdo->exec("DELETE FROM ride_ratings WHERE passenger_id IN ($in) OR driver_id IN ($in)");
     $rides = $pdo->exec("DELETE FROM rides WHERE (passenger_id IN ($in) OR driver_id IN ($in)) AND id > {$snapshot['max_ride_id']}");
@@ -31,6 +36,7 @@ if (($argv[1] ?? '') === 'restore') {
     $users = $pdo->exec("DELETE FROM users WHERE id IN ($in)");
     $alerts = $pdo->exec("DELETE FROM community_alerts WHERE title LIKE 'TEST:%' OR title LIKE 'UAT:%'");
     $logs = $pdo->exec("DELETE FROM admin_activity_logs WHERE id > {$snapshot['max_log_id']}");
+    if (isset($snapshot['max_attempt_id'])) $pdo->exec("DELETE FROM auth_attempts WHERE id > {$snapshot['max_attempt_id']}");
     $notices = $pdo->exec("DELETE FROM notifications WHERE id > {$snapshot['max_notification_id']}");
     $pdo->exec('DELETE FROM municipality_fares');
     foreach ($snapshot['municipality_fares'] as $row) {

@@ -18,4 +18,10 @@ return [
     'osrm_user_agent' => 'PASAKJA/1.0 (tricycle ride booking)',
     // Street names for map pins (OpenStreetMap Nominatim). Results are cached for 30 days.
     'nominatim_base_url' => 'https://nominatim.openstreetmap.org',
+    // Phone notifications (Web Push). Create the keys with:
+    //   php scripts/generate-vapid-keys.php your-contact@example.com
+    // and paste the printed lines here. Leave them out to turn notifications off.
+    // 'vapid_public_key' => '',
+    // 'vapid_private_key_pem' => '',
+    // 'vapid_subject' => 'mailto:your-contact@example.com',
 ];

@@ -10,6 +10,7 @@ import {
 } from '../components/Icons';
 import { Logo } from '../components/Logo';
 import { ApiError, requestPasswordReset, type AuthPayload } from '../services/api';
+import { LegalSheet, type LegalDocument } from './Legal';
 import { ID_PHOTO_SIZE, resizeImageFile } from '../services/images';
 import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
@@ -127,6 +128,8 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
   const [municipality, setMunicipality] = useState('');
   const [showForgot, setShowForgot] = useState(false);
   const [vehicleType, setVehicleType] = useState('tricycle');
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocument | null>(null);
   const fieldsRef = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -240,12 +243,15 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
     const fields: string[] = mode === 'login' ? ['phone', 'password'] : [
       'name', 'phone', 'email', 'municipality', 'password', 'confirmPassword',
       ...(role === 'driver' ? ['plateNumber', 'bodyNumber', 'licenseNumber', 'todaName', 'idPhoto'] : []),
+      'acceptTerms',
     ];
     const errors: Record<string, string> = {};
     for (const field of fields) {
       const message = field === 'idPhoto'
         ? (idPhoto ? '' : 'Upload your ID photo')
-        : validateField(field);
+        : field === 'acceptTerms'
+          ? (acceptTerms ? '' : 'Tick the box to agree to the Terms of Use and Privacy Notice')
+          : validateField(field);
       if (message) errors[field] = message;
     }
     if (Object.keys(errors).length) {
@@ -271,11 +277,11 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
           return;
         }
       }
-      await onAuth(role, { mode, role, ...form, municipality, ...driverDocuments });
+      await onAuth(role, { mode, role, ...form, municipality, ...driverDocuments, ...(mode === 'register' ? { acceptTerms } : {}) });
     } catch (error) {
-      // A suspended account (403) gets the server's message, which includes the admin's reason.
+      // A suspended account (403) or too many wrong tries (429) gets the server's own message.
       setAuthError(mode === 'login'
-        ? (error instanceof ApiError && error.status === 403 ? error.message : 'We couldn’t sign you in with those details. Check them and try again.')
+        ? (error instanceof ApiError && (error.status === 403 || error.status === 429) ? error.message : 'We couldn’t sign you in with those details. Check them and try again.')
         : (error instanceof Error ? error.message : 'Unable to create your account. Please try again.'));
       if (mode === 'register' && error && typeof error === 'object' && 'details' in error && error.details && typeof error.details === 'object') {
         setFieldErrors(Object.fromEntries(Object.entries(error.details as Record<string, unknown>).map(([field, message]) => [field, typeof message === 'string' && message ? message : 'Check this field'])));
@@ -558,7 +564,23 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
 
         {notice && <p className="auth-notice" role="status">{notice}</p>}
         {authError && <div className="auth-error-alert" role="alert"><IconAlertCircle size={16}/><span>{authError}</span></div>}
-        {mode === 'register' && <p className="auth-terms">By creating an account, you agree to PASAKJA’s terms and privacy policy.</p>}
+        {mode === 'register' && (
+          <div className="auth-consent">
+            <label className="auth-consent__label">
+              <input
+                ref={element => { fieldsRef.current.acceptTerms = element; }}
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={event => { setAcceptTerms(event.target.checked); setFieldErrors(errors => ({ ...errors, acceptTerms: '' })); }}
+                disabled={isSubmitting}
+                aria-invalid={Boolean(fieldErrors.acceptTerms)}
+                aria-describedby={fieldErrors.acceptTerms ? 'auth-acceptTerms-error' : undefined}
+              />
+              <span>I have read and agree to the <button type="button" className="auth-inline-link" onClick={event => { event.preventDefault(); setLegalDoc('terms'); }}>Terms of Use</button> and the <button type="button" className="auth-inline-link" onClick={event => { event.preventDefault(); setLegalDoc('privacy'); }}>Privacy Notice</button>.</span>
+            </label>
+            <FieldError id="auth-acceptTerms-error" message={fieldErrors.acceptTerms}/>
+          </div>
+        )}
         <AppButton type="button" size="large" disabled={isSubmitting} onClick={() => void submit()} className="auth-submit-button">
           {isSubmitting
             ? <><span className="btn-spinner" aria-hidden="true"/>{mode === 'login' ? 'Signing in…' : 'Creating account…'}</>
@@ -568,7 +590,9 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
           {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
           <button type="button" className="auth-footer-link" onClick={switchMode}>{mode === 'login' ? 'Sign up' : 'Sign in'}</button>
         </p>
+        <p className="auth-legal-links"><button type="button" className="auth-inline-link" onClick={() => setLegalDoc('terms')}>Terms of Use</button> · <button type="button" className="auth-inline-link" onClick={() => setLegalDoc('privacy')}>Privacy Notice</button></p>
       </form>
+      {legalDoc && <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)}/>}
       {showForgot && <ForgotPasswordDialog initialIdentifier={form.phone} onClose={() => setShowForgot(false)}/>}
     </AuthLayout>
   );

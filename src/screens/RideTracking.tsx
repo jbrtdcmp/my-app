@@ -87,7 +87,7 @@ export default function RideTracking({ onComplete, onCancelled = onComplete, isD
   useEffect(() => {
     if (!rideId || ['completed', 'cancelled'].includes(serverStatus)) return;
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 3500);
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 3500);
     const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };

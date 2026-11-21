@@ -12,6 +12,8 @@ import DriverDashboard from './screens/DriverDashboard';
 import AdminDashboard from './screens/AdminDashboard';
 import type { AdminTab } from './screens/AdminDashboard';
 import PublicTrip from './screens/PublicTrip';
+import Legal from './screens/Legal';
+import { disablePush, syncPush } from './services/push';
 import { AppShell, BottomTabBar as SharedBottomTabBar, TopBar } from './components/ui';
 import { Logo } from './components/Logo';
 import { acceptRide, authenticate, createRide, getAdminSos, getCurrentUser, getRide, signOut, type ApiUser, type AuthPayload, type RideRequest } from './services/api';
@@ -115,7 +117,7 @@ function RoleTopBar({ title, onBack, onOpenSos, role, sosCount }: { title: strin
   );
 }
 
-function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onCancelled, onLogout, onUserChange }: {
+function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onCancelled, onLogout, onUserChange, onAccountDeleted }: {
   screen: Screen;
   role: UserRole;
   user: ApiUser | null;
@@ -131,6 +133,7 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
   onCancelled: () => void;
   onLogout: () => void;
   onUserChange: (user: ApiUser) => void;
+  onAccountDeleted: () => void;
 }) {
   if (rideState === 'finding') return <FindingDriver rideId={rideId} onFound={onRideFound} onCancel={onCancelled}/>;
   if (rideState === 'tracking') return <RideTracking rideId={rideId} onComplete={onComplete} onCancelled={onCancelled} isDriver={role === 'driver'}/>;
@@ -139,7 +142,7 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
     case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
     case 'bookings': return <Bookings onResumeRide={onResumeRide} canResume={role !== 'admin'}/>;
     case 'alerts': return <Alerts role={role}/>;
-    case 'profile': return <Profile role={role} user={user} onLogout={onLogout} onUserChange={onUserChange}/>;
+    case 'profile': return <Profile role={role} user={user} onLogout={onLogout} onUserChange={onUserChange} onAccountDeleted={onAccountDeleted}/>;
     case 'driver': return <DriverDashboard onAcceptRide={onDriverAcceptRide} onResumeRide={onResumeRide}/>;
     case 'admin': return <AdminDashboard initialTab={adminTab} onTabChange={onAdminTabChange}/>;
     case 'drivers': return <AdminDashboard initialTab="drivers" onTabChange={onAdminTabChange}/>;
@@ -150,6 +153,8 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
 export default function App() {
   const publicTripMatch = window.location.pathname.match(/(?:^|\/)trip\/([a-f0-9]{64})\/?$/i);
   if (publicTripMatch) return <PublicTrip token={publicTripMatch[1]}/>;
+  const legalMatch = window.location.pathname.match(/^\/(privacy|terms)\/?$/);
+  if (legalMatch) return <Legal doc={legalMatch[1] as 'privacy' | 'terms'}/>;
 
   const [appState, setAppState] = useState<AppState>(() => window.location.pathname === AUTH_PATHS.signIn || window.location.pathname === AUTH_PATHS.signUp ? 'auth' : 'onboarding');
   const [activeScreen, setActiveScreen] = useState<Screen>('home');
@@ -189,6 +194,7 @@ export default function App() {
       }
       setCurrentUser(user);
       setRole(user.role);
+      void syncPush();
       const found = resolveRolePath(window.location.pathname);
       const screen = found?.role === user.role && isExactRoleRoute(user.role, window.location.pathname)
         ? found.screen
@@ -252,6 +258,7 @@ export default function App() {
     const user: ApiUser = await authenticate(credentials);
     setRole(user.role);
     setCurrentUser(user);
+    void syncPush();
     setAuthNotice('');
     const homeScreen = user.role === 'admin' ? 'admin' : user.role === 'driver' ? 'driver' : 'home';
     setActiveScreen(homeScreen);
@@ -262,6 +269,8 @@ export default function App() {
   const handleLogout = async () => {
     if (!window.confirm('Log out of PASAKJA?')) return;
     try {
+      // The next person on this phone shouldn't get this account's notifications.
+      await Promise.race([disablePush().catch(() => undefined), new Promise(resolve => window.setTimeout(resolve, 4000))]);
       await signOut();
     } catch (error) {
       console.error('Could not sign out cleanly.', error);
@@ -272,6 +281,16 @@ export default function App() {
       setActiveScreen('home');
       window.history.replaceState({ role: null, routePath: AUTH_PATHS.signIn }, '', AUTH_PATHS.signIn);
     }
+  };
+
+  // The account is already erased and signed out on the server; return to Sign in.
+  const handleAccountDeleted = () => {
+    setCurrentUser(null);
+    setAuthNotice('Your account was deleted. Thank you for using PASAKJA.');
+    setAppState('auth');
+    setRideState('idle');
+    setActiveScreen('home');
+    window.history.replaceState({ role: null, routePath: AUTH_PATHS.signIn }, '', AUTH_PATHS.signIn);
   };
 
   const handlePassengerBookingStart = async (ride: RideRequest) => {
@@ -310,7 +329,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       if (appState !== 'app') {
-        const authPath = appState === 'onboarding' ? AUTH_PATHS.onboarding : AUTH_PATHS.signIn;
+        const authPath = appState === 'onboarding' ? AUTH_PATHS.onboarding : window.location.pathname === AUTH_PATHS.signUp ? AUTH_PATHS.signUp : AUTH_PATHS.signIn;
         window.history.replaceState({ role: null, routePath: authPath }, '', authPath);
         return;
       }
@@ -414,6 +433,7 @@ export default function App() {
             onCancelled={handleRideCancelled}
             onLogout={handleLogout}
             onUserChange={setCurrentUser}
+            onAccountDeleted={handleAccountDeleted}
           />
       </div>
     </AppShell>

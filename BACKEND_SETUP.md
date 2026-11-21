@@ -9,11 +9,12 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 ## One-time local setup
 
 1. Start **Apache** and **MySQL** in the XAMPP Control Panel.
-2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables. Then import each file in `database/migrations/` in date order (oldest first): they add fares, live tracking, community alerts, password-reset requests, profile photos, driver license photos and account suspension. Every migration is safe to run again.
-3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git.
-4. Copy `.env.example` to `.env.local`. Keep `VITE_API_BASE_URL=/api`; the Vite dev server forwards `/api` to `PASAKJA_API_PROXY_TARGET` (the Apache URL for this folder). Restart Vite after changing either value.
-5. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
-6. Set `PASAKJA_DEMO_PASSWORD` in your shell, then create the local demo accounts by running `C:\xampp\php\php.exe database\seed_demo_accounts_v2.php` from this project folder. The three phone numbers are `+639000000001` (passenger), `+639000000002` (driver), and `+639000000003` (admin). The driver account is pre-approved for testing.
+2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables. Then import each file in `database/migrations/` in date order (oldest first): they add fares, live tracking, community alerts, password-reset requests, profile photos, driver license photos, account suspension, and the public-launch tables (sign-in limits, consent, account deletion, push notifications). Every migration is safe to run again.
+3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git, and the API refuses to run without it.
+4. For phone notifications, run `C:\xampp\php\php.exe scripts\generate-vapid-keys.php your-contact@example.com` and paste the three printed lines into `api/config.local.php`. Without them the app works, but the notifications card stays hidden.
+5. Copy `.env.example` to `.env.local`. Keep `VITE_API_BASE_URL=/api`; the Vite dev server forwards `/api` to `PASAKJA_API_PROXY_TARGET` (the Apache URL for this folder). Restart Vite after changing either value.
+6. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
+7. Set `PASAKJA_DEMO_PASSWORD` in your shell, then create the local demo accounts by running `C:\xampp\php\php.exe database\seed_demo_accounts_v2.php` from this project folder. The three phone numbers are `+639000000001` (passenger), `+639000000002` (driver), and `+639000000003` (admin). The driver account is pre-approved for testing.
 
 ## Opening the app on localhost or the network
 
@@ -36,14 +37,36 @@ The seed script is for local testing only and refuses web requests. It reads the
 
 ## Before deployment
 
-Set database credentials in server environment variables or a private config outside the web root, use HTTPS, update the API allowed-origin list, add rate limiting and phone verification, and configure backups. Do not deploy the XAMPP root account or its blank default password. Live driver tracking needs a managed WebSocket/realtime service; map routing needs a routing provider.
+- **Server settings:** create `api/config.local.php` on the server with the host's database account (never the XAMPP root account or its blank password), the site's `https://` address in `allowed_origins`, and new VAPID keys from `scripts/generate-vapid-keys.php`.
+- **Who runs it:** set `VITE_OPERATOR_NAME` and `VITE_SUPPORT_CONTACT` in `.env.local` before `npm run build`. They appear in the Privacy Notice and Terms of Use (`/privacy`, `/terms`).
+- **HTTPS:** location and notifications only work on `https://`. Add the HTTPS redirect, `Strict-Transport-Security` for the pages, and a Content-Security-Policy on the host, after checking how its proxy reports HTTPS (a wrong rule causes an endless redirect).
+- **Data:** confirm the town fares and emergency hotline numbers with the TODA and LGU and save them in the dashboard; remove the demo accounts.
+- **Backups:** set up a scheduled database export; free hosting has no automatic backups.
+- **Free services:** the public OpenStreetMap servers allow about one request per second for the whole app. The API respects that (straight-line estimates when it must wait), but heavy use needs a self-hosted or keyed routing service.
+
+## Security built in
+
+- **Sign-in limits:** 5 wrong passwords per account (30 per network address) in 15 minutes lock sign-in until the oldest attempt is 15 minutes old; the same limit covers the current-password checks in Profile. At most 20 sign-ups and 10 reset requests per address per hour. Attempts are kept for one day (`auth_attempts`).
+- **Bookings and rides:** one active booking per passenger; a driver can't accept a second ride while on one; only approved drivers can see or decline open requests.
+- **Input:** request bodies over 3 MB are refused; text fields must be text and fit their columns; PHP warnings are never shown.
+- **Map lookups:** 60 route or place lookups per user per minute, and one call per second to each OpenStreetMap service for the whole app; old cache rows are cleaned up.
+- **Drivers:** an approved driver who changes their name goes back to admin review; license photos can be re-sent at most every 5 minutes.
+- **Accounts:** suspending an account cancels its bookings that are still looking for a driver. Deleting an account (Profile → Privacy and account) erases name, phone, email, photos and license photo, signs out everywhere, and keeps ride records without a name.
+- **Headers:** the API answers with `Cache-Control: no-store`, `X-Frame-Options: DENY` and `Referrer-Policy: no-referrer` (plus HSTS on HTTPS); `public/.htaccess` adds safe headers for the pages.
+
+There is no SMS verification of phone numbers: no free SMS service exists. Admin approval of drivers (license photo), the sign-in limits and account suspension are the safeguards instead.
+
+## Phone notifications and installing
+
+PASAKJA is an installable web app (`public/manifest.webmanifest`, `public/sw.js`): Chrome and Edge offer **Install PASAKJA app** in Profile, and on iPhone people use Share → Add to Home Screen. In **Profile → App and notifications** each person turns notifications on for that device. Every in-app notice is also sent to their devices (ride updates, approvals, SOS alerts for admins), and a new booking alerts up to five nearby approved drivers seen in the last 15 minutes. Messages are encrypted in `api/web_push.php` (RFC 8291) and signed with the server's VAPID key (RFC 8292); only Google, Apple, Mozilla and Microsoft push addresses are accepted. Notifications are sent after the app has its answer, so they never slow it down. On iPhone they work only from the Home Screen app, on iOS 16.4 or later. Signing out turns them off on that device.
 
 ## API paths
 
 - `GET /health`
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`
 - `POST /auth/forgot` (reset request for an admin), `POST /auth/password` (change password)
-- `PATCH /me` (edit name, phone, email and home town; a new phone or email needs `current_password`)
+- `PATCH /me` (edit name, phone, email and home town; a new phone or email needs `current_password`), `DELETE /me` (delete my account; body `password`)
+- `GET /push/config`, `PUT /push/subscription`, `DELETE /push/subscription`, `POST /push/test` (phone notifications for the signed-in user)
 - `PUT /me/avatar`, `DELETE /me/avatar` (profile photo)
 - `GET /rides`, `POST /rides`
 - `GET /rides/{id}`, `POST /rides/{id}/accept`, `POST /rides/{id}/decline`
