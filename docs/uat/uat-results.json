@@ -1,7 +1,7 @@
 {
   "summary": {
-    "started": "2026-11-21T06:05:25.788Z",
-    "finished": "2026-11-21T06:07:45.146Z",
+    "started": "2026-11-21T06:30:57.012Z",
+    "finished": "2026-11-21T06:33:12.296Z",
     "environment": "Local XAMPP (Apache, PHP 8.0, MariaDB 10.4) + Vite dev server, Chromium (Playwright) at 390×844 phone and 1440×900 desktop sizes",
     "passed": 28,
     "failed": 0,
@@ -19,7 +19,7 @@
       "evidence": [
         "UAT-01-login-home.png"
       ],
-      "seconds": 4
+      "seconds": 5
     },
     {
       "id": "UAT-02",
@@ -32,7 +32,7 @@
       "evidence": [
         "UAT-02-wrong-password.png"
       ],
-      "seconds": 4
+      "seconds": 3
     },
     {
       "id": "UAT-03",
@@ -46,7 +46,7 @@
         "UAT-03-signup-form.png",
         "UAT-03-signed-in.png"
       ],
-      "seconds": 6
+      "seconds": 3
     },
     {
       "id": "UAT-04",
@@ -60,7 +60,7 @@
         "UAT-04-driver-signup-form.png",
         "UAT-04-driver-pending.png"
       ],
-      "seconds": 8
+      "seconds": 5
     },
     {
       "id": "UAT-05",
@@ -74,7 +74,7 @@
         "UAT-05-review-license.png",
         "UAT-05-driver-verified.png"
       ],
-      "seconds": 5
+      "seconds": 4
     },
     {
       "id": "UAT-06",
@@ -87,7 +87,7 @@
       "evidence": [
         "UAT-06-driver-online.png"
       ],
-      "seconds": 6
+      "seconds": 5
     },
     {
       "id": "UAT-07",
@@ -101,7 +101,7 @@
         "UAT-07-fare-before-booking.png",
         "UAT-07-finding-tricycle.png"
       ],
-      "seconds": 5
+      "seconds": 7
     },
     {
       "id": "UAT-08",
@@ -109,14 +109,14 @@
       "role": "Driver",
       "steps": "As the online driver nearby, wait for the request card, tap Accept.",
       "expected": "The request appears for the nearest driver with pickup, destination and fare; after Accept both sides see the ride details.",
-      "actual": "Request card showed pickup, destination and fare; after Accept the driver got the trip screen and the passenger saw the driver details (ride #71).",
+      "actual": "Request card showed pickup, destination and fare; after Accept the driver got the trip screen and the passenger saw the driver details (ride #74).",
       "status": "Pass",
       "evidence": [
         "UAT-08-request-card.png",
         "UAT-08-driver-trip-screen.png",
         "UAT-08-passenger-driver-assigned.png"
       ],
-      "seconds": 13
+      "seconds": 10
     },
     {
       "id": "UAT-09",
@@ -129,7 +129,7 @@
       "evidence": [
         "UAT-09-live-tracking.png"
       ],
-      "seconds": 3
+      "seconds": 4
     },
     {
       "id": "UAT-10",
@@ -169,7 +169,7 @@
       "evidence": [
         "UAT-12-rate-driver.png"
       ],
-      "seconds": 2
+      "seconds": 1
     },
     {
       "id": "UAT-13",
@@ -209,7 +209,7 @@
         "UAT-15-finding-before-cancel.png",
         "UAT-15-back-home.png"
       ],
-      "seconds": 6
+      "seconds": 5
     },
     {
       "id": "UAT-16",
@@ -237,7 +237,7 @@
         "UAT-17-admin-sos.png",
         "UAT-17-admin-sos-resolved.png"
       ],
-      "seconds": 3
+      "seconds": 2
     },
     {
       "id": "UAT-18",
@@ -264,7 +264,7 @@
       "evidence": [
         "UAT-19-fare-saved.png"
       ],
-      "seconds": 1
+      "seconds": 2
     },
     {
       "id": "UAT-20",
@@ -279,7 +279,7 @@
         "files/UAT-20-report.pdf",
         "files/UAT-20-report.xlsx"
       ],
-      "seconds": 3
+      "seconds": 2
     },
     {
       "id": "UAT-21",
@@ -294,7 +294,7 @@
         "UAT-21-admin-temp-password.png",
         "UAT-21-password-changed.png"
       ],
-      "seconds": 7
+      "seconds": 9
     },
     {
       "id": "UAT-22",
@@ -377,7 +377,7 @@
         "UAT-27-edit-profile.png",
         "UAT-27-profile-saved.png"
       ],
-      "seconds": 5
+      "seconds": 4
     },
     {
       "id": "UAT-28",
@@ -385,7 +385,7 @@
       "role": "Driver / Passenger",
       "steps": "Passenger books a ride; the online driver taps Decline on the request card.",
       "expected": "The request leaves that driver’s list and the booking stays open for another driver instead of being assigned to them.",
-      "actual": "After Decline the request left the driver’s list; ride #73 stayed “finding” (not assigned to that driver), then the passenger cancelled it.",
+      "actual": "After Decline the request left the driver’s list; ride #76 stayed “finding” (not assigned to that driver), then the passenger cancelled it.",
       "status": "Pass",
       "evidence": [
         "UAT-28-request-before-decline.png",
