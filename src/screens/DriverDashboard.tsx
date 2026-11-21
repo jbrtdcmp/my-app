@@ -84,8 +84,11 @@ export default function DriverDashboard({ onAcceptRide, onResumeRide }: DriverDa
       if (current) setRequestError(error instanceof Error ? error.message : 'Could not load requests.');
     }).finally(() => { if (current) setLoadingRequests(false); });
     void refresh();
-    const interval = window.setInterval(refresh, 8000);
-    return () => { current = false; window.clearInterval(interval); };
+    // Only while the app is on screen; a push notification brings the driver back for new requests.
+    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 8000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { current = false; window.clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   }, [isOnline]);
 
   // Nearest pickup first; requests without a distance (open to everyone) go last.

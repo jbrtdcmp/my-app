@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { IconCamera, IconKey, IconLogout, IconProfile } from '../components/Icons';
-import { AppBadge, AppCard, AppInput, AppSelect, FormField, ListRow } from '../components/ui';
+import { IconAlerts, IconCamera, IconKey, IconLogout, IconProfile } from '../components/Icons';
+import { AppBadge, AppButton, AppCard, AppInput, AppSelect, FormField, ListRow } from '../components/ui';
 import SosControl from '../components/SosControl';
 import { LANGUAGES } from '../data';
-import { ApiError, changePassword, getDriverProfile, removeAvatar, saveAvatar, updateProfile, uploadDriverIdPhoto, type ApiUser } from '../services/api';
+import { ApiError, changePassword, deleteAccount, getDriverProfile, sendTestPush, removeAvatar, saveAvatar, updateProfile, uploadDriverIdPhoto, type ApiUser } from '../services/api';
 import { AVATAR_SIZE, ID_PHOTO_SIZE, resizeImageFile } from '../services/images';
+import { disablePush, enablePush, pushStatus, PushUnavailableError, type PushStatus } from '../services/push';
 import { formatWhen } from '../services/time';
 import type { AppRole } from '../navigation/roleRoutes';
 
@@ -13,6 +14,8 @@ interface ProfileProps {
   user: ApiUser | null;
   onLogout: () => void;
   onUserChange: (user: ApiUser) => void;
+  // Called after the user deletes their own account (they are already signed out).
+  onAccountDeleted?: () => void;
 }
 
 
@@ -132,7 +135,7 @@ function PersonalInfoCard({ role, user, onUserChange }: { role: AppRole; user: A
     if (Object.keys(found).length) return;
     setBusy(true);
     try {
-      const updated = await updateProfile({
+      const { user: updated, reviewRequired } = await updateProfile({
         name: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
@@ -142,7 +145,10 @@ function PersonalInfoCard({ role, user, onUserChange }: { role: AppRole; user: A
       onUserChange({ ...user, ...updated });
       setEditing(false);
       setCurrentPassword('');
-      setDone(phoneChanged ? `Profile saved. Sign in with ${updated.phone} from now on.` : 'Profile saved.');
+      setDone([
+        phoneChanged ? `Profile saved. Sign in with ${updated.phone} from now on.` : 'Profile saved.',
+        reviewRequired ? 'Because your name changed, an admin will check it against your license before you can go online again.' : '',
+      ].filter(Boolean).join(' '));
     } catch (saveError) {
       const details = saveError instanceof ApiError ? saveError.details : {};
       const fieldErrors = { name: details.name, phone: details.phone, email: details.email, municipality: details.municipality, currentPassword: details.current_password };
@@ -176,7 +182,7 @@ function PersonalInfoCard({ role, user, onUserChange }: { role: AppRole; user: A
           </ListRow>
         )) : (
           <form className="profile-edit-form" noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
-            <FormField id="profile-name" label="Full name" error={errors.name}>
+            <FormField id="profile-name" label="Full name" helper={role === 'driver' ? 'Must match your license. An approved driver who changes it goes back to admin review.' : undefined} error={errors.name}>
               <AppInput id="profile-name" autoComplete="name" value={form.name} onChange={event => change('name', event.target.value)} disabled={busy} aria-invalid={!!errors.name}/>
             </FormField>
             <FormField id="profile-phone" label="Phone number" helper="You sign in with this number." error={errors.phone}>
@@ -216,12 +222,168 @@ interface ProfileSection {
   rows: { label: string; value: string }[];
 }
 
-function ProfileLayout({ role, user, sections, onLogout, onUserChange, children }: {
+// Profile → Notifications: phone notifications for this device, as an on/off switch.
+function NotificationsCard({ role }: { role: AppRole }) {
+  const [status, setStatus] = useState<PushStatus | 'loading'>('loading');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'error' | 'info'; text: string } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    pushStatus().then(next => { if (live) setStatus(next); }).catch(() => { if (live) setStatus('unsupported'); });
+    return () => { live = false; };
+  }, []);
+
+  if (status === 'loading' || status === 'not-configured') return null;
+
+  const hint = {
+    on: role === 'driver' ? 'New ride requests, even when PASAKJA is closed' : role === 'admin' ? 'SOS alerts and requests, even when PASAKJA is closed' : 'Ride updates, even when PASAKJA is closed',
+    off: role === 'driver' ? 'Hear about ride requests when PASAKJA is closed' : role === 'admin' ? 'Hear about SOS alerts when PASAKJA is closed' : 'Get ride updates when PASAKJA is closed',
+    blocked: 'Blocked — allow notifications in your browser’s site settings',
+    'needs-install': 'On iPhone: Share → Add to Home Screen, then open PASAKJA from there',
+    unsupported: 'Not available in this browser',
+  }[status];
+  const canToggle = status === 'on' || status === 'off';
+
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setMessage(null);
+    try { await action(); } catch (actionError) {
+      if (actionError instanceof PushUnavailableError) setStatus('unsupported');
+      setMessage({ tone: 'error', text: actionError instanceof Error ? actionError.message : 'Something went wrong. Try again.' });
+    } finally { setBusy(false); }
+  };
+  const toggle = () => run(async () => {
+    if (status === 'on') { await disablePush(); setStatus('off'); }
+    else { await enablePush(); setStatus('on'); }
+  });
+  const test = () => run(async () => {
+    const result = await sendTestPush();
+    setMessage(result.sent > 0
+      ? { tone: 'info', text: 'Test sent. It should appear in a few seconds.' }
+      : { tone: 'error', text: 'The test couldn’t be delivered. Turn notifications off and on again.' });
+  });
+
+  return (
+    <section className="profile-layout__section">
+      <h2>Notifications</h2>
+      <AppCard className="profile-layout__card">
+        <ListRow className={status === 'on' ? 'profile-layout__row--divided' : ''}>
+          <span className="profile-notify__label">
+            <span className="profile-layout__row-label flex items-center gap-2"><IconAlerts size={16}/>Phone notifications</span>
+            <span className="profile-notify__hint">{hint}</span>
+          </span>
+          {canToggle && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={status === 'on'}
+              aria-label="Phone notifications"
+              disabled={busy}
+              onClick={() => void toggle()}
+              className={`system-toggle ${status === 'on' ? 'system-toggle--on' : ''}`}
+            ><span/></button>
+          )}
+        </ListRow>
+        {status === 'on' && (
+          <ListRow>
+            <span className="profile-layout__row-label">Test notification</span>
+            <button type="button" disabled={busy} onClick={() => void test()} className="text-link text-sm">Send test</button>
+          </ListRow>
+        )}
+      </AppCard>
+      {message && <p role={message.tone === 'error' ? 'alert' : 'status'} className={`profile-notify__message profile-notify__message--${message.tone}`}>{message.text}</p>}
+    </section>
+  );
+}
+
+// Profile → Privacy and account: the two documents, and deleting the account
+// (passengers and drivers; admin accounts are managed separately).
+function DeleteAccountDialog({ role, onCancel, onDeleted }: { role: AppRole; onCancel: () => void; onDeleted: () => void }) {
+  const [password, setPassword] = useState('');
+  const [understood, setUnderstood] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onCancel(); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [busy, onCancel]);
+
+  const submit = async () => {
+    if (busy) return;
+    if (!password) { setError('Enter your password.'); return; }
+    if (!understood) { setError('Tick the box to confirm.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await deleteAccount(password);
+      onDeleted();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Could not delete your account.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="dialog-backdrop fixed inset-0 z-50 flex items-end justify-center px-4 md:items-center" onClick={event => { if (event.target === event.currentTarget && !busy) onCancel(); }}>
+      <section className="dialog-card dialog-sheet w-full" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+        <h3 id="delete-account-title">Delete your account?</h3>
+        <p className="mb-4 text-sm text-ink-soft">
+          This erases your name, phone number, email and photos{role === 'driver' ? ', and your license photo,' : ''} and signs you out on every device. Your past rides stay in the records without your name. This can’t be undone.
+        </p>
+        <FormField id="delete-password" label="Your password">
+          <AppInput id="delete-password" type="password" autoComplete="current-password" value={password} disabled={busy} autoFocus onChange={event => { setPassword(event.target.value); setError(''); }}/>
+        </FormField>
+        <label className="profile-delete__confirm">
+          <input type="checkbox" checked={understood} disabled={busy} onChange={event => { setUnderstood(event.target.checked); setError(''); }}/>
+          <span>I understand that my account will be deleted permanently.</span>
+        </label>
+        {error && <p className="profile-layout__error" role="alert">{error}</p>}
+        <div className="mt-4 flex gap-2">
+          <AppButton type="button" variant="secondary" className="flex-1" disabled={busy} onClick={onCancel}>Cancel</AppButton>
+          <AppButton type="button" variant="danger" className="flex-1" disabled={busy} onClick={() => void submit()}>{busy ? 'Deleting…' : 'Delete account'}</AppButton>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PrivacyAccountCard({ role, onAccountDeleted }: { role: AppRole; onAccountDeleted?: () => void }) {
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = role !== 'admin' && Boolean(onAccountDeleted);
+  return (
+    <section className="profile-layout__section">
+      <h2>Privacy and account</h2>
+      <AppCard className="profile-layout__card">
+        <ListRow className="profile-layout__row--divided">
+          <span className="profile-layout__row-label">Privacy Notice</span>
+          <a href="/privacy" target="_blank" rel="noopener" className="text-link text-sm">Read</a>
+        </ListRow>
+        <ListRow className={canDelete ? 'profile-layout__row--divided' : ''}>
+          <span className="profile-layout__row-label">Terms of Use</span>
+          <a href="/terms" target="_blank" rel="noopener" className="text-link text-sm">Read</a>
+        </ListRow>
+        {canDelete && (
+          <ListRow>
+            <span className="profile-layout__row-label">Delete account</span>
+            <button type="button" onClick={() => setDeleting(true)} className="text-link text-sm text-danger">Delete…</button>
+          </ListRow>
+        )}
+      </AppCard>
+      {deleting && onAccountDeleted && <DeleteAccountDialog role={role} onCancel={() => setDeleting(false)} onDeleted={onAccountDeleted}/>}
+    </section>
+  );
+}
+
+function ProfileLayout({ role, user, sections, onLogout, onUserChange, onAccountDeleted, children }: {
   role: AppRole;
   user: ApiUser | null;
   sections: ProfileSection[];
   onLogout: () => void;
   onUserChange: (user: ApiUser) => void;
+  onAccountDeleted?: () => void;
   children?: React.ReactNode;
 }) {
   const [avatarError, setAvatarError] = useState('');
@@ -296,7 +458,9 @@ function ProfileLayout({ role, user, sections, onLogout, onUserChange, children 
             </AppCard>
           </section>
         ))}
+        <NotificationsCard role={role}/>
         <ChangePasswordCard/>
+        <PrivacyAccountCard role={role} onAccountDeleted={onAccountDeleted}/>
         <button type="button" onClick={onLogout} className="profile-layout__logout">
           <IconLogout size={18}/> Log out
         </button>
@@ -305,13 +469,14 @@ function ProfileLayout({ role, user, sections, onLogout, onUserChange, children 
   );
 }
 
-function PassengerProfile({ user, onLogout, onUserChange }: Omit<ProfileProps, 'role'>) {
+function PassengerProfile({ user, onLogout, onUserChange, onAccountDeleted }: Omit<ProfileProps, 'role'>) {
   return (
     <ProfileLayout
       role="passenger"
       user={user}
       onLogout={onLogout}
       onUserChange={onUserChange}
+      onAccountDeleted={onAccountDeleted}
       sections={[]}
     >
       <SosControl municipality={user?.municipality || 'Carrascal'}/>
@@ -374,7 +539,7 @@ function earningsLine(amount: number, rides: number): string {
   return `₱${pesos} · ${rides} ${rides === 1 ? 'ride' : 'rides'}`;
 }
 
-function DriverProfile({ user, onLogout, onUserChange }: Omit<ProfileProps, 'role'>) {
+function DriverProfile({ user, onLogout, onUserChange, onAccountDeleted }: Omit<ProfileProps, 'role'>) {
   const [profile, setProfile] = useState<DriverProfileData | null>(null);
   const [loadError, setLoadError] = useState('');
 
@@ -395,6 +560,7 @@ function DriverProfile({ user, onLogout, onUserChange }: Omit<ProfileProps, 'rol
       user={user}
       onLogout={onLogout}
       onUserChange={onUserChange}
+      onAccountDeleted={onAccountDeleted}
       sections={[
         { title: 'Vehicle and verification', rows: [
           { label: 'Plate number', value: profile?.plate_number ?? '' },

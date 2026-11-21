@@ -8,6 +8,82 @@ declare(strict_types=1);
 // logAdminActivity(), validPoint() and ApiError from index.php.
 
 require_once __DIR__ . '/features_service.php';
+require_once __DIR__ . '/web_push.php';
+
+// ---- Phone notifications. Notices are queued during the request and sent after the answer
+// has gone back to the app (see respond() in index.php), so the app never waits on push services.
+function pushQueue(?array $add = null, bool $clear = false): array
+{
+    static $queue = [];
+    if ($clear) $queue = [];
+    if ($add !== null) $queue[] = $add;
+    return $queue;
+}
+
+/** Queues a phone notification for every device where the user turned notifications on. */
+function queuePush(int $userId, string $title, string $body, string $kind, ?string $tag = null): void
+{
+    pushQueue(['user_id' => $userId, 'title' => mb_substr($title, 0, 80), 'body' => mb_substr($body, 0, 240), 'kind' => $kind, 'tag' => $tag]);
+}
+
+/** Sends the queued notifications; forgets devices the push service says are gone. Never throws. */
+function sendQueuedPushes(array $config): void
+{
+    $queue = pushQueue();
+    pushQueue(null, true);
+    $settings = webPushSettings($config);
+    if (!$queue || !$settings) return;
+    try {
+        $pdo = database($config);
+        $userIds = array_values(array_unique(array_map(static fn(array $item): int => (int)$item['user_id'], $queue)));
+        $stmt = $pdo->prepare('SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth_secret, u.role FROM push_subscriptions ps JOIN users u ON u.id = ps.user_id WHERE u.is_active = 1 AND ps.user_id IN (' . implode(', ', array_fill(0, count($userIds), '?')) . ')');
+        $stmt->execute($userIds);
+        $devices = [];
+        foreach ($stmt->fetchAll() as $row) $devices[(int)$row['user_id']][] = $row;
+        $gone = [];
+        $delivered = [];
+        foreach ($queue as $item) {
+            $userDevices = $devices[(int)$item['user_id']] ?? [];
+            if (!$userDevices) continue;
+            $message = ['title' => $item['title'], 'body' => $item['body'], 'url' => pushTargetPath((string)$userDevices[0]['role'], $item['kind']), 'tag' => $item['tag']];
+            foreach (webPushSend($userDevices, $message, $settings) as $id => $status) {
+                if ($status === 404 || $status === 410) $gone[] = $id;
+                elseif ($status >= 200 && $status < 300) $delivered[] = $id;
+            }
+        }
+        if ($gone) $pdo->prepare('DELETE FROM push_subscriptions WHERE id IN (' . implode(', ', array_fill(0, count($gone), '?')) . ')')->execute($gone);
+        if ($delivered) $pdo->prepare('UPDATE push_subscriptions SET last_sent_at = CURRENT_TIMESTAMP WHERE id IN (' . implode(', ', array_fill(0, count($delivered), '?')) . ')')->execute($delivered);
+    } catch (Throwable $error) {
+        error_log('PASAKJA push failed: ' . $error->getMessage());
+    }
+}
+
+/**
+ * Tells drivers near a new booking, so a driver whose app is in the background can open it.
+ * Approved, free drivers seen in the last 15 minutes within the dispatch radius who turned
+ * notifications on; nearest five.
+ */
+function queueRideRequestPushes(PDO $pdo, int $rideId): void
+{
+    $ride = $pdo->prepare('SELECT pickup_label, destination_label, pickup_lat, pickup_lng, estimated_fare FROM rides WHERE id = ?');
+    $ride->execute([$rideId]);
+    $ride = $ride->fetch();
+    if (!$ride || $ride['pickup_lat'] === null) return;
+    $drivers = $pdo->query("SELECT dp.user_id, dp.last_lat, dp.last_lng FROM driver_profiles dp JOIN users u ON u.id = dp.user_id
+        WHERE dp.verification_status = 'verified' AND u.is_active = 1 AND dp.last_lat IS NOT NULL AND dp.last_seen_at >= CURRENT_TIMESTAMP(3) - INTERVAL 15 MINUTE
+          AND EXISTS (SELECT 1 FROM push_subscriptions ps WHERE ps.user_id = dp.user_id)
+          AND NOT EXISTS (SELECT 1 FROM rides busy WHERE busy.driver_id = dp.user_id AND busy.status IN ('accepted', 'arriving', 'in_progress'))")->fetchAll();
+    $near = [];
+    foreach ($drivers as $driver) {
+        $km = dispatchHaversineKm((float)$ride['pickup_lat'], (float)$ride['pickup_lng'], (float)$driver['last_lat'], (float)$driver['last_lng']);
+        if ($km <= DISPATCH_RADIUS_KM) $near[(int)$driver['user_id']] = $km;
+    }
+    asort($near);
+    $body = sprintf('%s → %s · %s', $ride['pickup_label'], $ride['destination_label'], pesoAmount((float)$ride['estimated_fare']));
+    foreach (array_slice(array_keys($near), 0, 5) as $driverId) {
+        queuePush($driverId, 'New ride request near you', $body, 'ride_request', "request-{$rideId}");
+    }
+}
 
 /** Adds an in-app notice for one user. A failed notice never breaks the ride action that caused it. */
 function notifyUser(PDO $pdo, int $userId, string $type, string $title, string $message, ?int $referenceId = null): void
@@ -15,9 +91,122 @@ function notifyUser(PDO $pdo, int $userId, string $type, string $title, string $
     try {
         $pdo->prepare('INSERT INTO notifications (user_id, type, title, message, reference_id) VALUES (?, ?, ?, ?, ?)')
             ->execute([$userId, $type, mb_substr($title, 0, 160), mb_substr($message, 0, 500), $referenceId]);
+        queuePush($userId, $title, $message, $type, str_starts_with($type, 'ride_') && $referenceId ? "ride-{$referenceId}" : null);
     } catch (PDOException $error) {
         error_log('PASAKJA notification failed: ' . $error->getMessage());
     }
+}
+
+// ---- Sign-in limits (auth_attempts). Many phones on mobile data share one public address,
+// so the per-address limits are generous; the per-account limits do the real work.
+const ATTEMPT_WINDOW = 900; // 15 minutes
+const LOGIN_FAILS_PER_ACCOUNT = 5;
+const LOGIN_FAILS_PER_ADDRESS = 30;
+const PASSWORD_FAILS_PER_ACCOUNT = 5;
+const REGISTRATIONS_PER_ADDRESS_PER_HOUR = 20;
+const RESET_REQUESTS_PER_ADDRESS_PER_HOUR = 10;
+
+function clientAddress(): string
+{
+    return mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
+}
+
+/** Times (Unix seconds) of failed $kind attempts in the window, for one account (since its last success) or one address. */
+function recentFailures(PDO $pdo, string $kind, ?string $identifier, ?string $address): array
+{
+    $since = time() - ATTEMPT_WINDOW;
+    if ($identifier !== null) {
+        $stmt = $pdo->prepare("SELECT UNIX_TIMESTAMP(created_at) FROM auth_attempts
+            WHERE kind = ? AND identifier = ? AND succeeded = 0 AND created_at > FROM_UNIXTIME(?)
+              AND created_at > COALESCE((SELECT MAX(ok.created_at) FROM auth_attempts ok WHERE ok.kind = ? AND ok.identifier = ? AND ok.succeeded = 1), FROM_UNIXTIME(0))");
+        $stmt->execute([$kind, $identifier, $since, $kind, $identifier]);
+    } else {
+        $stmt = $pdo->prepare('SELECT UNIX_TIMESTAMP(created_at) FROM auth_attempts WHERE kind = ? AND ip = ? AND succeeded = 0 AND created_at > FROM_UNIXTIME(?)');
+        $stmt->execute([$kind, $address, $since]);
+    }
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Refuses with 429 when this account or this address has failed too often recently. */
+function guardAttempts(PDO $pdo, string $kind, string $identifier, int $perAccount, int $perAddress): void
+{
+    $now = time();
+    $wait = max(
+        attemptWaitSeconds(recentFailures($pdo, $kind, $identifier, null), $now, $perAccount, ATTEMPT_WINDOW),
+        attemptWaitSeconds(recentFailures($pdo, $kind, null, clientAddress()), $now, $perAddress, ATTEMPT_WINDOW),
+    );
+    if ($wait > 0) {
+        header('Retry-After: ' . $wait);
+        throw new ApiError(429, 'Too many wrong attempts. For your security, try again in ' . waitText($wait) . '.');
+    }
+}
+
+function recordAttempt(PDO $pdo, string $kind, string $identifier, bool $succeeded): void
+{
+    $pdo->prepare('INSERT INTO auth_attempts (kind, identifier, ip, succeeded) VALUES (?, ?, ?, ?)')
+        ->execute([$kind, $identifier, clientAddress(), $succeeded ? 1 : 0]);
+    if (random_int(1, 50) === 1) $pdo->exec('DELETE FROM auth_attempts WHERE created_at < CURRENT_TIMESTAMP - INTERVAL 1 DAY');
+}
+
+/** Refuses with 429 when this address already did $limit $kind actions in the last hour (sign-ups, reset requests). */
+function guardHourlyActions(PDO $pdo, string $kind, int $limit, string $message): void
+{
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM auth_attempts WHERE kind = ? AND ip = ? AND created_at > CURRENT_TIMESTAMP - INTERVAL 1 HOUR');
+    $stmt->execute([$kind, clientAddress()]);
+    if ((int)$stmt->fetchColumn() >= $limit) {
+        header('Retry-After: 3600');
+        throw new ApiError(429, $message);
+    }
+}
+
+// ---- Map lookups. The free OpenStreetMap services allow about one request per second
+// from the whole app, so each is gated globally, and each user gets 60 lookups a minute.
+const LOOKUPS_PER_USER_PER_MINUTE = 60;
+
+/** True when no $service call was made by anyone in the current second; records this one. */
+function claimExternalSlot(PDO $pdo, string $service): bool
+{
+    // A named lock makes "check, then record" one step, so two requests at the same moment
+    // can't both claim the second. Whoever doesn't get the lock waits for the next slot.
+    $lockName = 'pasakja-' . $service;
+    $lock = $pdo->prepare('SELECT GET_LOCK(?, 0)');
+    $lock->execute([$lockName]);
+    if ((int)$lock->fetchColumn() !== 1) return false;
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE kind = ? AND identifier = 'all' AND created_at >= CURRENT_TIMESTAMP - INTERVAL 1 SECOND");
+        $stmt->execute([$service]);
+        if ((int)$stmt->fetchColumn() > 0) return false;
+        recordAttempt($pdo, $service, 'all', true);
+    } finally {
+        $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lockName]);
+    }
+    if (random_int(1, 100) === 1) {
+        $pdo->exec('DELETE FROM route_cache WHERE expires_at < CURRENT_TIMESTAMP');
+        $pdo->exec('DELETE FROM place_name_cache WHERE expires_at < CURRENT_TIMESTAMP');
+    }
+    return true;
+}
+
+/** Refuses with 429 after LOOKUPS_PER_USER_PER_MINUTE route or place lookups in a minute; records this one. */
+function guardLookups(PDO $pdo, int $userId): void
+{
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE kind = 'lookup' AND identifier = ? AND created_at > CURRENT_TIMESTAMP - INTERVAL 1 MINUTE");
+    $stmt->execute(["user:{$userId}"]);
+    if ((int)$stmt->fetchColumn() >= LOOKUPS_PER_USER_PER_MINUTE) {
+        header('Retry-After: 60');
+        throw new ApiError(429, 'Too many map lookups. Wait a minute and try again.');
+    }
+    recordAttempt($pdo, 'lookup', "user:{$userId}", true);
+}
+
+/** Checks the user's current password, counting wrong guesses toward the password limit. */
+function verifyCurrentPassword(PDO $pdo, int $userId, string $password, string $hash): bool
+{
+    $key = "user:{$userId}";
+    guardAttempts($pdo, 'password', $key, PASSWORD_FAILS_PER_ACCOUNT, LOGIN_FAILS_PER_ADDRESS);
+    $ok = $password !== '' && password_verify($password, $hash);
+    recordAttempt($pdo, 'password', $key, $ok);
+    return $ok;
 }
 
 /** Sends the same notice to every active admin. */
@@ -112,6 +301,8 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         $identifier = trim((string)(body()['identifier'] ?? ''));
         if ($identifier === '') throw new ApiError(422, 'Enter the phone number or email on your account.');
         $pdo = database($config);
+        guardHourlyActions($pdo, 'forgot', RESET_REQUESTS_PER_ADDRESS_PER_HOUR, 'Too many reset requests from this network. Try again in an hour.');
+        recordAttempt($pdo, 'forgot', attemptIdentifier($identifier), true);
         $stmt = $pdo->prepare('SELECT id, full_name, phone, role FROM users WHERE (phone = :identifier OR phone = :normalized OR email = :email) AND is_active = 1 LIMIT 1');
         $stmt->execute(['identifier' => preg_replace('/\s+/', '', $identifier), 'normalized' => normalizePhilippinePhone($identifier), 'email' => strtolower($identifier)]);
         $account = $stmt->fetch();
@@ -136,7 +327,7 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         $pdo = database($config);
         $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ?');
         $stmt->execute([$user['id']]);
-        if (!password_verify($current, (string)$stmt->fetchColumn())) throw new ApiError(422, 'Your current password is incorrect.', ['current_password' => 'Incorrect password.']);
+        if (!verifyCurrentPassword($pdo, $user['id'], $current, (string)$stmt->fetchColumn())) throw new ApiError(422, 'Your current password is incorrect.', ['current_password' => 'Incorrect password.']);
         if ($next === $current) throw new ApiError(422, 'Choose a password different from your current one.', ['new_password' => 'Use a different password.']);
         $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([password_hash($next, PASSWORD_DEFAULT), $user['id']]);
         // Sign out other devices; keep this one signed in.
@@ -152,9 +343,11 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         [$details, $errors] = validateAccountDetails($input);
         if ($errors) throw new ApiError(422, 'Please correct the highlighted fields.', $errors);
         $pdo = database($config);
-        $stmt = $pdo->prepare('SELECT phone, email, municipality, avatar_data, password_hash FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT u.full_name, u.phone, u.email, u.municipality, u.avatar_data, u.password_hash, dp.verification_status FROM users u LEFT JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.id = ?');
         $stmt->execute([$user['id']]);
         $current = $stmt->fetch();
+        // An approved driver's name was checked against their license, so a new name goes back to review.
+        $reviewRequired = $current['verification_status'] === 'verified' && $details['name'] !== $current['full_name'];
         // 0917…, 917… and +63917… are the same number: keep the stored one unless the number itself changed.
         $phoneChanged = normalizePhilippinePhone((string)$current['phone']) !== $details['phone'];
         $phone = $phoneChanged ? $details['phone'] : (string)$current['phone'];
@@ -162,9 +355,9 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         // Admins have no home town field; leave it alone when the form doesn't send one.
         $town = array_key_exists('municipality', $input) ? $details['municipality'] : $current['municipality'];
         if ($phoneChanged || $emailChanged) {
-            $password = (string)($input['current_password'] ?? '');
+            $password = is_string($input['current_password'] ?? null) ? $input['current_password'] : '';
             if ($password === '') throw new ApiError(422, 'Enter your current password to change your phone number or email.', ['current_password' => 'Enter your current password.']);
-            if (!password_verify($password, (string)$current['password_hash'])) throw new ApiError(422, 'Your current password is incorrect.', ['current_password' => 'Incorrect password.']);
+            if (!verifyCurrentPassword($pdo, $user['id'], $password, (string)$current['password_hash'])) throw new ApiError(422, 'Your current password is incorrect.', ['current_password' => 'Incorrect password.']);
         }
         if ($phoneChanged) {
             $variants = phoneVariants($phone);
@@ -184,7 +377,99 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
             if ((string)$error->getCode() === '23000') throw new ApiError(409, 'That phone number or email is already used by another account.');
             throw $error;
         }
-        respond(['user' => publicUser(['id' => $user['id'], 'full_name' => $details['name'], 'phone' => $phone, 'email' => $details['email'], 'role' => $user['role'], 'municipality' => $town, 'avatar_data' => $current['avatar_data']])]);
+        if ($reviewRequired) {
+            $pdo->prepare("UPDATE driver_profiles SET verification_status = 'pending' WHERE user_id = ?")->execute([$user['id']]);
+            notifyAdmins($pdo, 'driver_renamed', 'Driver changed their name', sprintf('%s (was %s) changed the name on an approved driver account. Check it against their license in Dashboard → Drivers.', $details['name'], $current['full_name']), $user['id']);
+        }
+        respond(['user' => publicUser(['id' => $user['id'], 'full_name' => $details['name'], 'phone' => $phone, 'email' => $details['email'], 'role' => $user['role'], 'municipality' => $town, 'avatar_data' => $current['avatar_data']]), 'review_required' => $reviewRequired]);
+    }
+
+    // ---- Phone notifications (Web Push).
+    if ($segments === ['push', 'config'] && $method === 'GET') {
+        authenticatedUser($config);
+        $settings = webPushSettings($config);
+        respond(['enabled' => $settings !== null, 'public_key' => $settings['public_key'] ?? null]);
+    }
+    if ($segments === ['push', 'subscription'] && $method === 'PUT') {
+        $user = authenticatedUser($config);
+        if (!webPushSettings($config)) throw new ApiError(503, 'Notifications aren’t set up on this server yet.');
+        try {
+            [$endpoint, $p256dh, $auth] = validatedPushSubscription(body());
+        } catch (InvalidArgumentException $error) {
+            throw new ApiError(422, $error->getMessage());
+        }
+        $pdo = database($config);
+        $pdo->prepare('INSERT INTO push_subscriptions (user_id, endpoint, endpoint_hash, p256dh, auth_secret) VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), endpoint = VALUES(endpoint), p256dh = VALUES(p256dh), auth_secret = VALUES(auth_secret)')
+            ->execute([$user['id'], $endpoint, hash('sha256', $endpoint), $p256dh, $auth]);
+        // Keep the five newest devices per account.
+        $pdo->prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND id NOT IN (SELECT id FROM (SELECT id FROM push_subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 5) newest)')
+            ->execute([$user['id'], $user['id']]);
+        respond(['ok' => true]);
+    }
+    if ($segments === ['push', 'subscription'] && $method === 'DELETE') {
+        $user = authenticatedUser($config);
+        $endpoint = body()['endpoint'] ?? '';
+        if (is_string($endpoint) && $endpoint !== '') {
+            database($config)->prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint_hash = ?')->execute([$user['id'], hash('sha256', $endpoint)]);
+        }
+        respond(['ok' => true]);
+    }
+    if ($segments === ['push', 'test'] && $method === 'POST') {
+        $user = authenticatedUser($config);
+        $settings = webPushSettings($config);
+        if (!$settings) throw new ApiError(503, 'Notifications aren’t set up on this server yet.');
+        $pdo = database($config);
+        $recent = $pdo->prepare("SELECT COUNT(*) FROM auth_attempts WHERE kind = 'push_test' AND identifier = ? AND created_at > CURRENT_TIMESTAMP - INTERVAL 1 HOUR");
+        $recent->execute(["user:{$user['id']}"]);
+        if ((int)$recent->fetchColumn() >= 10) throw new ApiError(429, 'You sent several test notifications already. Try again later.');
+        recordAttempt($pdo, 'push_test', "user:{$user['id']}", true);
+        $stmt = $pdo->prepare('SELECT id, endpoint, p256dh, auth_secret FROM push_subscriptions WHERE user_id = ?');
+        $stmt->execute([$user['id']]);
+        $devices = $stmt->fetchAll();
+        if (!$devices) throw new ApiError(409, 'Turn on notifications on this device first.');
+        $results = webPushSend($devices, ['title' => 'Notifications are on', 'body' => 'PASAKJA can now reach you here, even when the app is closed.', 'url' => pushTargetPath($user['role'], 'notice'), 'tag' => 'push-test'], $settings, 300);
+        $gone = array_keys(array_filter($results, static fn(int $status): bool => $status === 404 || $status === 410));
+        if ($gone) $pdo->prepare('DELETE FROM push_subscriptions WHERE id IN (' . implode(', ', array_fill(0, count($gone), '?')) . ')')->execute($gone);
+        respond(['devices' => count($results), 'sent' => count(array_filter($results, static fn(int $status): bool => $status >= 200 && $status < 300)), 'statuses' => array_values($results)]);
+    }
+
+    // ---- Delete my account. Personal details are erased; ride records stay without a name,
+    // because the other person in each ride and the TODA still need them.
+    if ($segments === ['me'] && $method === 'DELETE') {
+        $user = authenticatedUser($config);
+        if ($user['role'] === 'admin') throw new ApiError(403, 'Admin accounts can’t be deleted from the app.');
+        $input = body();
+        $pdo = database($config);
+        $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ?');
+        $stmt->execute([$user['id']]);
+        $password = is_string($input['password'] ?? null) ? $input['password'] : '';
+        if (!verifyCurrentPassword($pdo, $user['id'], $password, (string)$stmt->fetchColumn())) throw new ApiError(422, 'Your password is incorrect.', ['password' => 'Incorrect password.']);
+        $busy = $pdo->prepare("SELECT COUNT(*) FROM rides WHERE (passenger_id = ? OR driver_id = ?) AND status IN ('accepted', 'arriving', 'in_progress')");
+        $busy->execute([$user['id'], $user['id']]);
+        if ((int)$busy->fetchColumn() > 0) throw new ApiError(409, 'You are on a ride right now. Delete your account after the ride ends.');
+        $pdo->beginTransaction();
+        try {
+            $open = $pdo->prepare("SELECT id FROM rides WHERE passenger_id = ? AND status = 'finding'");
+            $open->execute([$user['id']]);
+            foreach ($open->fetchAll(PDO::FETCH_COLUMN) as $openRideId) {
+                $pdo->prepare("UPDATE rides SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'finding'")->execute([$openRideId]);
+                logRideEvent($pdo, (int)$openRideId, $user['id'], 'cancelled', 'Cancelled because the passenger deleted their account.');
+                revokeRideShares($pdo, (int)$openRideId);
+            }
+            $pdo->prepare("UPDATE users SET full_name = 'Deleted user', phone = CONCAT('deleted-', id), email = NULL, municipality = NULL, avatar_data = NULL,
+                    password_hash = ?, is_active = 0, suspended_at = NULL, suspension_reason = NULL, deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+                ->execute([password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT), $user['id']]);
+            $pdo->prepare("UPDATE driver_profiles SET license_number = '', id_photo_data = NULL, id_photo_uploaded_at = NULL, last_lat = NULL, last_lng = NULL, last_heading = NULL, last_accuracy = NULL, last_seen_at = NULL, verification_status = 'rejected' WHERE user_id = ?")->execute([$user['id']]);
+            foreach (['DELETE FROM driver_locations WHERE driver_id = ?', 'DELETE FROM notifications WHERE user_id = ?', 'DELETE FROM password_reset_requests WHERE user_id = ?', 'DELETE FROM push_subscriptions WHERE user_id = ?', 'DELETE FROM api_tokens WHERE user_id = ?'] as $erase) {
+                $pdo->prepare($erase)->execute([$user['id']]);
+            }
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+        respond(['ok' => true]);
     }
 
     // ---- Profile photo.
@@ -228,11 +513,12 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
             throw new ApiError(422, $error->getMessage());
         }
         $pdo = database($config);
-        $current = $pdo->prepare('SELECT verification_status, plate_number FROM driver_profiles WHERE user_id = ?');
+        $current = $pdo->prepare('SELECT verification_status, plate_number, (id_photo_uploaded_at > CURRENT_TIMESTAMP - INTERVAL 5 MINUTE) AS uploaded_recently FROM driver_profiles WHERE user_id = ?');
         $current->execute([$user['id']]);
         $profile = $current->fetch();
         if (!$profile) throw new ApiError(404, 'Driver profile not found.');
         if ($profile['verification_status'] === 'verified') throw new ApiError(409, 'Your account is already verified. Ask an admin if your ID needs to be updated.');
+        if ((int)$profile['uploaded_recently'] === 1) throw new ApiError(429, 'You sent a photo a moment ago. Wait a few minutes before sending another.');
         // A rejected driver who sends a new ID goes back into the review queue.
         $pdo->prepare("UPDATE driver_profiles SET id_photo_data = ?, id_photo_uploaded_at = CURRENT_TIMESTAMP, verification_status = 'pending' WHERE user_id = ?")->execute([$photo, $user['id']]);
         notifyAdmins($pdo, 'driver_id_uploaded', 'Driver ID uploaded', "{$user['full_name']} (plate {$profile['plate_number']}) uploaded an ID photo for review.", $user['id']);
@@ -258,7 +544,7 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
     // ---- Admin: passenger and driver accounts, with suspend and reactivate.
     if ($segments === ['admin', 'accounts'] && $method === 'GET') {
         requireRole(authenticatedUser($config), 'admin');
-        $rows = database($config)->query(ADMIN_ACCOUNT_SELECT . " WHERE u.role IN ('passenger', 'driver') ORDER BY u.is_active ASC, u.created_at DESC, u.id DESC LIMIT 2000")->fetchAll();
+        $rows = database($config)->query(ADMIN_ACCOUNT_SELECT . " WHERE u.role IN ('passenger', 'driver') AND u.deleted_at IS NULL ORDER BY u.is_active ASC, u.created_at DESC, u.id DESC LIMIT 2000")->fetchAll();
         respond(['accounts' => array_map('adminAccountPayload', $rows)]);
     }
     if (count($segments) === 4 && $segments[0] === 'admin' && $segments[1] === 'accounts' && in_array($segments[3], ['suspend', 'reactivate'], true) && $method === 'POST') {
@@ -277,11 +563,19 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
                 throw new ApiError(422, $error->getMessage(), ['reason' => $error->getMessage()]);
             }
             // Ending a ride halfway would leave the other person stranded in the app.
-            $busy = $pdo->prepare("SELECT COUNT(*) FROM rides WHERE (passenger_id = ? OR driver_id = ?) AND status IN ('finding', 'accepted', 'arriving', 'in_progress')");
+            $busy = $pdo->prepare("SELECT COUNT(*) FROM rides WHERE (passenger_id = ? OR driver_id = ?) AND status IN ('accepted', 'arriving', 'in_progress')");
             $busy->execute([$accountId, $accountId]);
-            if ((int)$busy->fetchColumn() > 0) throw new ApiError(409, 'This user is on an active ride. Suspend the account after the ride ends or is cancelled.');
+            if ((int)$busy->fetchColumn() > 0) throw new ApiError(409, 'This user is on a ride right now. Suspend the account after the ride ends or is cancelled.');
             $pdo->beginTransaction();
             try {
+                // Bookings still looking for a driver are cancelled with the account.
+                $open = $pdo->prepare("SELECT id FROM rides WHERE passenger_id = ? AND status = 'finding'");
+                $open->execute([$accountId]);
+                foreach ($open->fetchAll(PDO::FETCH_COLUMN) as $openRideId) {
+                    $pdo->prepare("UPDATE rides SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'finding'")->execute([$openRideId]);
+                    logRideEvent($pdo, (int)$openRideId, $admin['id'], 'cancelled', 'Cancelled because the passenger account was suspended.');
+                    revokeRideShares($pdo, (int)$openRideId);
+                }
                 $pdo->prepare('UPDATE users SET is_active = 0, suspended_at = CURRENT_TIMESTAMP, suspension_reason = ? WHERE id = ?')->execute([$reason, $accountId]);
                 // Signs the user out everywhere; a driver also stops getting ride requests.
                 $pdo->prepare('UPDATE api_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL')->execute([$accountId]);
@@ -415,7 +709,7 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
 
     // ---- Place name for a map pin (OpenStreetMap Nominatim, cached).
     if ($segments === ['places', 'reverse'] && $method === 'GET') {
-        authenticatedUser($config);
+        $user = authenticatedUser($config);
         $lat = $_GET['lat'] ?? null;
         $lng = $_GET['lng'] ?? null;
         if (!validPoint($lat, $lng, $config)) throw new ApiError(422, 'That point is outside the PASAKJA service area.');
@@ -427,6 +721,9 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         $cached->execute([$key]);
         $hit = $cached->fetch();
         if ($hit) respond(['label' => $hit['label']]);
+        guardLookups($pdo, $user['id']);
+        // Someone else asked Nominatim this second: the app retries once shortly after.
+        if (!claimExternalSlot($pdo, 'nominatim')) respond(['label' => null, 'retry' => true]);
 
         $base = rtrim((string)($config['nominatim_base_url'] ?? 'https://nominatim.openstreetmap.org'), '/');
         $curl = curl_init($base . '/reverse?' . http_build_query(['format' => 'jsonv2', 'lat' => $lat, 'lon' => $lng, 'zoom' => 18, 'addressdetails' => 1, 'accept-language' => 'en']));

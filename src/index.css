@@ -620,6 +620,17 @@
   .auth-terms { margin: var(--space-xl) 0 0; color: var(--color-ink-soft); font-size: var(--type-small); line-height: var(--line-small); text-align: center; }
   .auth-screen .auth-submit-button { width: 100%; max-width: none; margin-top: var(--space-xl); }
   .auth-terms + .auth-submit-button { margin-top: var(--space-md); }
+  .auth-consent { margin: var(--space-xl) 0 var(--space-md); }
+  .auth-consent__label { display: flex; align-items: flex-start; gap: var(--space-sm); color: var(--color-ink); font-size: var(--type-small); line-height: var(--line-small); cursor: pointer; }
+  .auth-consent__label input { flex: none; width: 20px; height: 20px; margin-top: 1px; accent-color: var(--color-orange-action); }
+  .profile-notify__label { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 2px; }
+  .profile-notify__hint { padding-left: 24px; color: var(--color-ink-soft); font-size: var(--type-small); line-height: var(--line-small); }
+  .profile-notify__message { margin: var(--space-sm) var(--space-xs) 0; font-size: var(--type-small); line-height: var(--line-small); }
+  .profile-notify__message--error { color: #A93232; }
+  .profile-notify__message--info { color: var(--color-ink-soft); }
+  .profile-delete__confirm { display: flex; align-items: flex-start; gap: var(--space-sm); margin-top: var(--space-md); color: var(--color-ink); font-size: var(--type-small); line-height: var(--line-small); cursor: pointer; }
+  .profile-delete__confirm input { flex: none; width: 18px; height: 18px; margin-top: 1px; accent-color: var(--color-danger); }
+  .auth-legal-links { margin: var(--space-md) 0 0; color: var(--color-ink-soft); font-size: var(--type-small); text-align: center; }
   .auth-footer { margin: var(--space-xl) 0 0; color: var(--color-ink-soft); font-size: var(--type-body); line-height: var(--line-body); text-align: center; }
   .auth-footer-link { position: relative; width: auto; height: auto; min-height: 0; padding: 0; border: 0; color: var(--color-orange-dark); background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
   .auth-footer-link::after { content: ''; position: absolute; inset: -12px -4px; }
@@ -816,6 +827,21 @@
 
   /* Public trip page. */
   .public-trip-map { height: clamp(var(--public-map-min-height), 55vh, 560px); }
+
+  /* Privacy Notice and Terms of Use (/privacy, /terms). */
+  .legal-page { min-height: 100dvh; padding: var(--space-lg); background: var(--color-warm); }
+  .legal-page__card { width: 100%; max-width: 760px; margin: 0 auto; overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-2xl); background: var(--color-surface); }
+  .legal-page__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-md); padding: var(--space-xl) var(--space-xl) var(--space-lg); border-bottom: 1px solid var(--color-border); }
+  .legal-page__header h1 { margin: var(--space-xs) 0 0; color: var(--color-ink); font-size: var(--type-display); line-height: var(--line-display); font-weight: 800; }
+  .legal-page__date { margin: var(--space-xs) 0 0; color: var(--color-ink-soft); font-size: var(--type-small); }
+  .legal-page__section { padding: var(--space-lg) var(--space-xl) 0; }
+  .legal-page__section h2 { margin: 0 0 var(--space-sm); color: var(--color-ink); font-size: var(--type-subtitle); line-height: var(--line-subtitle); font-weight: 800; }
+  .legal-page__section p, .legal-page__section li { color: var(--color-ink); font-size: var(--type-body); line-height: var(--line-body); }
+  .legal-page__section p { margin: 0 0 var(--space-sm); }
+  .legal-page__section ul { margin: 0 0 var(--space-sm); padding-left: 1.25rem; list-style: disc; }
+  .legal-page__section li { margin-bottom: var(--space-xs); }
+  .legal-page__footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-md); margin-top: var(--space-lg); padding: var(--space-lg) var(--space-xl); border-top: 1px solid var(--color-border); font-size: var(--type-small); }
+  .legal-page__footer a, .auth-consent a, .auth-legal-links a { color: var(--color-orange-dark); font-weight: 700; text-decoration: underline; }
 }
 
 @media (min-width: 480px) {

@@ -96,8 +96,11 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
     let mounted = true;
     const load = async () => { try { const events = await getAdminSos(); if (mounted) { setSosEvents(events); setSosError(''); } } catch (error) { if (mounted) setSosError(error instanceof Error ? error.message : 'Could not load SOS alerts.'); } };
     void load();
-    const timer = window.setInterval(() => void load(), 5000);
-    return () => { mounted = false; window.clearInterval(timer); };
+    // Only while the dashboard is on screen; catch up as soon as it is shown again.
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 5000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { mounted = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [tab]);
   useEffect(() => {
     if (tab !== 'sos') return;

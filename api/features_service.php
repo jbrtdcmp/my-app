@@ -102,6 +102,25 @@ function generateTemporaryPassword(int $length = 10): string
 
 const VEHICLE_TYPES = ['tricycle'];
 
+/** The screen a phone notification opens: ride updates go to the ride, other notices to Alerts. */
+function pushTargetPath(string $role, string $kind): string
+{
+    if ($kind === 'ride_request') return '/driver/requests';
+    if (str_starts_with($kind, 'ride_')) {
+        return match ($role) { 'driver' => '/driver/requests', 'admin' => '/admin/overview', default => '/passenger/home' };
+    }
+    return in_array($role, ['passenger', 'driver', 'admin'], true) ? "/{$role}/alerts" : '/';
+}
+
+/** ₱25, ₱30.50 — the way fares are written in notices. */
+function pesoAmount(float $amount): string
+{
+    return '₱' . rtrim(rtrim(number_format($amount, 2, '.', ','), '0'), '.');
+}
+
+// Version of the Terms of Use and Privacy Notice (src/screens/Legal.tsx TERMS_VERSION).
+const TERMS_VERSION = '2026-11-21';
+
 /**
  * Stores Philippine mobile numbers one way: 09171234567, 9171234567, 639171234567
  * and +639171234567 all become +639171234567. Anything else keeps only digits and +.
@@ -112,6 +131,35 @@ function normalizePhilippinePhone(string $input): string
     if (preg_match('/^\+?63(9\d{9})$/', $digits, $match)) return '+63' . $match[1];
     if (preg_match('/^0?(9\d{9})$/', $digits, $match)) return '+63' . $match[1];
     return $digits;
+}
+
+/**
+ * Sign-in limits. Given the times (Unix seconds) of recent failed attempts, returns 0 when
+ * another attempt is allowed, otherwise how many seconds to wait until one is.
+ * With $limit = 5 and $window = 900, the sixth try inside 15 minutes is refused until the
+ * oldest counted failure is 15 minutes old.
+ */
+function attemptWaitSeconds(array $failureTimes, int $now, int $limit, int $window): int
+{
+    $recent = array_values(array_filter($failureTimes, static fn($time): bool => (int)$time > $now - $window));
+    if (count($recent) < $limit) return 0;
+    sort($recent);
+    return max(1, (int)$recent[count($recent) - $limit] + $window - $now);
+}
+
+/** "1 minute", "12 minutes" — for "Try again in …" messages. */
+function waitText(int $seconds): string
+{
+    $minutes = max(1, (int)ceil($seconds / 60));
+    return $minutes === 1 ? '1 minute' : "{$minutes} minutes";
+}
+
+/** The account an attempt is counted against: a phone number in +63 form, or a lower-case email. */
+function attemptIdentifier(string $identifier): string
+{
+    $identifier = trim($identifier);
+    if (str_contains($identifier, '@')) return mb_substr(strtolower($identifier), 0, 190);
+    return mb_substr(normalizePhilippinePhone($identifier), 0, 190);
 }
 
 /**
@@ -140,10 +188,12 @@ function phoneVariants(string $normalized): array
  */
 function validateAccountDetails(array $input): array
 {
-    $name = trim((string)preg_replace('/\s+/u', ' ', (string)($input['name'] ?? '')));
-    $phone = normalizePhilippinePhone((string)($input['phone'] ?? ''));
-    $email = strtolower(trim((string)($input['email'] ?? '')));
-    $townInput = trim((string)($input['municipality'] ?? ''));
+    // A list or object where text belongs counts as empty, so it fails the checks below.
+    $text = static fn(string $key): string => is_scalar($input[$key] ?? null) ? (string)$input[$key] : '';
+    $name = trim((string)preg_replace('/\s+/u', ' ', $text('name')));
+    $phone = normalizePhilippinePhone($text('phone'));
+    $email = strtolower(trim($text('email')));
+    $townInput = trim($text('municipality'));
     $town = canonicalTown($townInput);
     $errors = [];
     if (mb_strlen($name) < 2 || mb_strlen($name) > 120) $errors['name'] = 'Enter your full name.';

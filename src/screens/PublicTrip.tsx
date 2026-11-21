@@ -18,11 +18,13 @@ export default function PublicTrip({ token }: { token: string }) {
         if (!live) return;
         setTrip(result);
         setError('');
-        if (result.status !== 'completed' && result.status !== 'cancelled') timer = window.setTimeout(refresh, 4000);
+        if (result.status !== 'completed' && result.status !== 'cancelled') timer = window.setTimeout(next, 4000);
       } catch (reason) {
         if (live) setError(reason instanceof Error ? reason.message : 'This shared trip is unavailable.');
       }
     };
+    // While the page is hidden, wait without asking the server.
+    const next = () => { if (document.visibilityState === 'visible') void refresh(); else timer = window.setTimeout(next, 4000); };
     void refresh();
     return () => { live = false; window.clearTimeout(timer); };
   }, [token]);

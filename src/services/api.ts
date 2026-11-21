@@ -26,6 +26,8 @@ export interface AuthPayload {
   // Drivers only: resized photo of their license or ID (data URL) and vehicle type.
   idPhoto?: string;
   vehicleType?: string;
+  // Sign-up only: the user ticked the Terms of Use and Privacy Notice box.
+  acceptTerms?: boolean;
 }
 
 export interface RideRequest {
@@ -403,8 +405,9 @@ export interface ProfileUpdate {
   currentPassword?: string;
 }
 
-export async function updateProfile(input: ProfileUpdate): Promise<ApiUser> {
-  const result = await request<{ user: ApiUser }>('me', {
+// reviewRequired: an approved driver changed their name and is back in the admin review queue.
+export async function updateProfile(input: ProfileUpdate): Promise<{ user: ApiUser; reviewRequired: boolean }> {
+  const result = await request<{ user: ApiUser; review_required?: boolean }>('me', {
     method: 'PATCH',
     body: JSON.stringify({
       name: input.name,
@@ -414,7 +417,30 @@ export async function updateProfile(input: ProfileUpdate): Promise<ApiUser> {
       current_password: input.currentPassword ?? '',
     }),
   });
-  return result.user;
+  return { user: result.user, reviewRequired: Boolean(result.review_required) };
+}
+
+// ---- Phone notifications (Web Push); see services/push.ts
+export async function getPushConfig(): Promise<{ enabled: boolean; public_key: string | null }> {
+  return request<{ enabled: boolean; public_key: string | null }>('push/config');
+}
+
+export async function savePushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
+  await request('push/subscription', { method: 'PUT', body: JSON.stringify(subscription) });
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  await request('push/subscription', { method: 'DELETE', body: JSON.stringify({ endpoint }) });
+}
+
+export async function sendTestPush(): Promise<{ devices: number; sent: number }> {
+  return request<{ devices: number; sent: number }>('push/test', { method: 'POST', body: '{}' });
+}
+
+// Erases the account's personal details and signs out everywhere (passengers and drivers only).
+export async function deleteAccount(password: string): Promise<void> {
+  await request('me', { method: 'DELETE', body: JSON.stringify({ password }) });
+  storeAuthToken('');
 }
 
 export async function saveAvatar(image: string): Promise<string> {

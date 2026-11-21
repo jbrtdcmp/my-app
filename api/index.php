@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+
 require_once __DIR__ . '/fare_service.php';
 require_once __DIR__ . '/dispatch_service.php';
 require_once __DIR__ . '/ride_status.php';
@@ -8,9 +10,20 @@ require_once __DIR__ . '/feature_routes.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
+// Answers carry personal data: never cache them, never show them in frames, never leak the URL.
+header('Cache-Control: no-store');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+$https = ($_SERVER['HTTPS'] ?? '') === 'on' || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+if ($https) header('Strict-Transport-Security: max-age=15552000');
 
 $configFile = __DIR__ . '/config.local.php';
-$config = file_exists($configFile) ? require $configFile : require __DIR__ . '/config.example.php';
+if (!file_exists($configFile)) {
+    http_response_code(503);
+    echo json_encode(['error' => 'The server is not configured yet.']);
+    exit;
+}
+$config = require $configFile;
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = $config['allowed_origins'] ?? [];
 if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
@@ -37,17 +50,50 @@ final class ApiError extends RuntimeException
 function respond(array $data, int $status = 200): void
 {
     http_response_code($status);
-    echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (function_exists('pushQueue') && pushQueue()) {
+        if ($status >= 400) {
+            // The action failed, so its notices must not go out.
+            pushQueue(null, true);
+        } else {
+            // Finish the answer first, then send the phone notifications.
+            ignore_user_abort(true);
+            header('Content-Length: ' . strlen($json));
+            header('Connection: close');
+            echo $json;
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            } else {
+                while (ob_get_level() > 0) ob_end_flush();
+                flush();
+            }
+            sendQueuedPushes($GLOBALS['config']);
+            exit;
+        }
+    }
+    echo $json;
     exit;
 }
 
+const MAX_BODY_BYTES = 3 * 1024 * 1024;
+
 function body(): array
 {
-    $raw = file_get_contents('php://input');
+    if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > MAX_BODY_BYTES) throw new ApiError(413, 'The request is too large.');
+    $raw = file_get_contents('php://input', false, null, 0, MAX_BODY_BYTES + 1);
+    if (is_string($raw) && strlen($raw) > MAX_BODY_BYTES) throw new ApiError(413, 'The request is too large.');
     if ($raw === false || trim($raw) === '') return [];
     $decoded = json_decode($raw, true);
     if (!is_array($decoded)) throw new ApiError(400, 'Request body must be valid JSON.');
     return $decoded;
+}
+
+/** A text field from the request: '' when missing, 422 when it isn't text, cut to $max characters. */
+function textField(array $input, string $key, int $max, string $default = ''): string
+{
+    $value = $input[$key] ?? $default;
+    if (!is_scalar($value)) throw new ApiError(422, 'Please correct the form fields.', [$key => 'Enter text here.']);
+    return mb_substr(trim((string)$value), 0, $max);
 }
 
 function database(array $config): PDO
@@ -149,6 +195,9 @@ function routeBetween(PDO $pdo, array $config, float $fromLat, float $fromLng, f
     $distance = haversineMeters($fromLat, $fromLng, $toLat, $toLng);
     $duration = ($distance / 1000 / 20) * 3600;
     $fallback = true;
+    $response = null;
+    $httpStatus = 0;
+    if (claimExternalSlot($pdo, 'osrm')) {
     $base = rtrim((string)($config['osrm_base_url'] ?? getenv('OSRM_BASE_URL') ?: 'https://router.project-osrm.org'), '/');
     $url = $base . '/route/v1/driving/' . number_format($fromLng, 7, '.', '') . ',' . number_format($fromLat, 7, '.', '') . ';' . number_format($toLng, 7, '.', '') . ',' . number_format($toLat, 7, '.', '') . '?overview=full&geometries=geojson';
     $curl = curl_init($url);
@@ -158,6 +207,7 @@ function routeBetween(PDO $pdo, array $config, float $fromLat, float $fromLng, f
     $response = curl_exec($curl);
     $httpStatus = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
     curl_close($curl);
+    }
     if (is_string($response) && $httpStatus === 200) {
         $decoded = json_decode($response, true);
         $best = $decoded['routes'][0] ?? null;
@@ -231,24 +281,30 @@ try {
         [$details, $errors] = validateAccountDetails($input);
         ['name' => $name, 'phone' => $phone, 'municipality' => $municipality] = $details;
         $email = (string)$details['email'];
-        $password = (string)($input['password'] ?? '');
-        $role = (string)($input['role'] ?? 'passenger');
+        $password = is_string($input['password'] ?? null) ? $input['password'] : '';
+        $role = is_string($input['role'] ?? null) ? $input['role'] : 'passenger';
+        if (($input['acceptTerms'] ?? false) !== true) $errors['acceptTerms'] = 'Agree to the Terms of Use and Privacy Notice to create an account.';
         if (strlen($password) < 8) $errors['password'] = 'Password must be at least 8 characters.';
         if (!in_array($role, ['passenger', 'driver'], true)) $errors['role'] = 'Choose a valid account type.';
         $vehicleType = null;
         $idPhoto = null;
+        $driverDetails = [];
         if ($role === 'driver') {
-            foreach (['plateNumber', 'bodyNumber', 'licenseNumber', 'todaName'] as $field) {
-                if (trim((string)($input[$field] ?? '')) === '') $errors[$field] = 'This driver detail is required.';
+            foreach (['plateNumber' => 32, 'bodyNumber' => 32, 'licenseNumber' => 64, 'todaName' => 120] as $field => $max) {
+                $value = $input[$field] ?? '';
+                $value = is_scalar($value) ? trim((string)$value) : '';
+                if ($value === '') $errors[$field] = 'This driver detail is required.';
+                elseif (mb_strlen($value) > $max) $errors[$field] = "Use at most {$max} characters.";
+                $driverDetails[$field] = $value;
             }
-            $vehicleType = trim((string)($input['vehicleType'] ?? 'tricycle')) ?: 'tricycle';
+            $vehicleType = is_scalar($input['vehicleType'] ?? null) ? (trim((string)$input['vehicleType']) ?: 'tricycle') : 'tricycle';
             if (!in_array($vehicleType, VEHICLE_TYPES, true)) $errors['vehicleType'] = 'Choose a vehicle type.';
             // An admin checks this photo before approving the driver.
-            if (trim((string)($input['idPhoto'] ?? '')) === '') {
+            if (!is_string($input['idPhoto'] ?? null) || trim($input['idPhoto']) === '') {
                 $errors['idPhoto'] = 'Upload a photo of your driver’s license or ID.';
             } else {
                 try {
-                    $idPhoto = validatedIdPhotoDataUrl((string)$input['idPhoto']);
+                    $idPhoto = validatedIdPhotoDataUrl($input['idPhoto']);
                 } catch (InvalidArgumentException $error) {
                     $errors['idPhoto'] = $error->getMessage();
                 }
@@ -257,15 +313,16 @@ try {
         if ($errors) throw new ApiError(422, 'Please correct the form fields.', $errors);
 
         $pdo = database($config);
+        guardHourlyActions($pdo, 'register', REGISTRATIONS_PER_ADDRESS_PER_HOUR, 'Too many new accounts were created from this network in the last hour. Try again later.');
         $pdo->beginTransaction();
         try {
-            $statement = $pdo->prepare('INSERT INTO users (full_name, phone, email, municipality, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)');
-            $statement->execute([$name, $phone, $email !== '' ? $email : null, $municipality, password_hash($password, PASSWORD_DEFAULT), $role]);
+            $statement = $pdo->prepare('INSERT INTO users (full_name, phone, email, municipality, password_hash, role, terms_accepted_at, terms_version) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)');
+            $statement->execute([$name, $phone, $email !== '' ? $email : null, $municipality, password_hash($password, PASSWORD_DEFAULT), $role, TERMS_VERSION]);
             $userId = (int)$pdo->lastInsertId();
             if ($role === 'driver') {
                 $driver = $pdo->prepare('INSERT INTO driver_profiles (user_id, plate_number, body_number, license_number, toda_name, vehicle_type, id_photo_data, id_photo_uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
-                $driver->execute([$userId, trim((string)$input['plateNumber']), trim((string)$input['bodyNumber']), trim((string)$input['licenseNumber']), trim((string)$input['todaName']), $vehicleType, $idPhoto]);
-                notifyAdmins($pdo, 'driver_signup', 'New driver waiting for approval', sprintf('%s (%s, plate %s) signed up. Check their ID in Dashboard → Drivers.', $name, trim((string)$input['todaName']), trim((string)$input['plateNumber'])), $userId);
+                $driver->execute([$userId, $driverDetails['plateNumber'], $driverDetails['bodyNumber'], $driverDetails['licenseNumber'], $driverDetails['todaName'], $vehicleType, $idPhoto]);
+                notifyAdmins($pdo, 'driver_signup', 'New driver waiting for approval', sprintf('%s (%s, plate %s) signed up. Check their ID in Dashboard → Drivers.', $name, $driverDetails['todaName'], $driverDetails['plateNumber']), $userId);
             }
             $pdo->commit();
         } catch (PDOException $error) {
@@ -273,6 +330,7 @@ try {
             if ((string)$error->getCode() === '23000') throw new ApiError(409, 'That phone number or email is already registered.');
             throw $error;
         }
+        recordAttempt($pdo, 'register', $phone, true);
         $user = ['id' => $userId, 'full_name' => $name, 'phone' => $phone, 'email' => $email ?: null, 'role' => $role, 'municipality' => $municipality];
         $token = issueToken($pdo, $userId);
         respond(['user' => publicUser($user), 'token' => $token], 201);
@@ -284,13 +342,17 @@ try {
         $password = (string)($input['password'] ?? '');
         if ($identifier === '' || $password === '') throw new ApiError(422, 'Enter your phone or email and password.');
         $pdo = database($config);
+        $attemptKey = attemptIdentifier($identifier);
+        guardAttempts($pdo, 'login', $attemptKey, LOGIN_FAILS_PER_ACCOUNT, LOGIN_FAILS_PER_ADDRESS);
         // Match the number as typed or in the standard +63 form, so 0917…, 917… and +63917… all work.
         $statement = $pdo->prepare('SELECT id, full_name, phone, email, municipality, avatar_data, password_hash, role, is_active, suspension_reason FROM users WHERE phone = :identifier OR phone = :normalized OR email = :email LIMIT 1');
         $statement->execute(['identifier' => $identifier, 'normalized' => normalizePhilippinePhone($identifier), 'email' => strtolower($identifier)]);
         $user = $statement->fetch();
         if (!$user || !password_verify($password, $user['password_hash'])) {
+            recordAttempt($pdo, 'login', $attemptKey, false);
             throw new ApiError(401, 'The phone/email or password is incorrect.');
         }
+        recordAttempt($pdo, 'login', $attemptKey, true);
         // Only after the right password, so a suspension doesn't reveal which numbers have accounts.
         if (!(int)$user['is_active']) {
             $reason = trim((string)($user['suspension_reason'] ?? ''));
@@ -371,11 +433,10 @@ try {
         }
         $pdo->beginTransaction();
         $stmt = $pdo->prepare('INSERT INTO sos_events (ride_id, user_id, role, latitude, longitude, note) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$activeRide['id'] ?? null, $user['id'], $user['role'], $lat, $lng, mb_substr(trim((string)($input['note'] ?? '')), 0, 500) ?: null]);
+        $stmt->execute([$activeRide['id'] ?? null, $user['id'], $user['role'], $lat, $lng, textField($input, 'note', 500) ?: null]);
         $sosId = (int)$pdo->lastInsertId();
-        $admins = $pdo->query("SELECT id FROM users WHERE role = 'admin' AND is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
-        $notify = $pdo->prepare('INSERT INTO notifications (user_id, type, title, message, reference_id) VALUES (?, ?, ?, ?, ?)');
-        foreach ($admins as $adminId) $notify->execute([$adminId, 'sos', 'Emergency alert', $user['full_name'] . ' sent an SOS alert.', $sosId]);
+        // In-app notice plus a phone notification for every admin.
+        notifyAdmins($pdo, 'sos', 'Emergency alert', $user['full_name'] . ' sent an SOS alert. Open PASAKJA to see their location.', $sosId);
         logAdminActivity($pdo, (int)$user['id'], 'sos.created', 'sos_event', $sosId, ['ride_id' => $activeRide['id'] ?? null]);
         $pdo->commit();
         $driverDetails = null;
@@ -410,7 +471,7 @@ try {
         $user = authenticatedUser($config);
         requireRole($user, 'admin');
         $pdo = database($config);
-        $counts = $pdo->query("SELECT (SELECT COUNT(*) FROM driver_profiles) AS total_drivers, (SELECT COUNT(*) FROM users WHERE role = 'passenger' AND is_active = 1) AS total_passengers, (SELECT COUNT(*) FROM rides WHERE status IN ('finding', 'accepted', 'arriving', 'in_progress')) AS active_rides, (SELECT COUNT(*) FROM rides WHERE status = 'completed' AND completed_at >= CURDATE()) AS completed_today")->fetch();
+        $counts = $pdo->query("SELECT (SELECT COUNT(*) FROM driver_profiles tdp JOIN users tdu ON tdu.id = tdp.user_id WHERE tdu.deleted_at IS NULL) AS total_drivers, (SELECT COUNT(*) FROM users WHERE role = 'passenger' AND is_active = 1) AS total_passengers, (SELECT COUNT(*) FROM rides WHERE status IN ('finding', 'accepted', 'arriving', 'in_progress')) AS active_rides, (SELECT COUNT(*) FROM rides WHERE status = 'completed' AND completed_at >= CURDATE()) AS completed_today")->fetch();
         $towns = $pdo->query('SELECT municipality AS name, COUNT(*) AS rides, COUNT(DISTINCT driver_id) AS drivers FROM rides WHERE requested_at >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY) GROUP BY municipality ORDER BY municipality')->fetchAll();
         $statuses = $pdo->query("SELECT status, COUNT(*) AS total FROM rides WHERE requested_at >= CURRENT_DATE GROUP BY status")->fetchAll();
         $statusCounts = ['completed' => 0, 'cancelled' => 0, 'in_progress' => 0];
@@ -436,7 +497,7 @@ try {
         $user = authenticatedUser($config);
         requireRole($user, 'admin');
         // The ID photo itself is left out of the list; it is fetched one driver at a time.
-        $stmt = database($config)->query('SELECT u.id, u.full_name, u.phone, dp.plate_number, dp.body_number, dp.license_number, dp.toda_name, dp.vehicle_type, (dp.id_photo_data IS NOT NULL) AS has_id_photo, dp.id_photo_uploaded_at, dp.verification_status, dp.last_seen_at FROM users u JOIN driver_profiles dp ON dp.user_id = u.id ORDER BY FIELD(dp.verification_status, \'pending\', \'verified\', \'rejected\'), dp.created_at DESC');
+        $stmt = database($config)->query('SELECT u.id, u.full_name, u.phone, dp.plate_number, dp.body_number, dp.license_number, dp.toda_name, dp.vehicle_type, (dp.id_photo_data IS NOT NULL) AS has_id_photo, dp.id_photo_uploaded_at, dp.verification_status, dp.last_seen_at FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.deleted_at IS NULL ORDER BY FIELD(dp.verification_status, \'pending\', \'verified\', \'rejected\'), dp.created_at DESC');
         respond(['drivers' => array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'has_id_photo' => (bool)(int)$row['has_id_photo']] + $row, $stmt->fetchAll())]);
     }
 
@@ -511,7 +572,8 @@ try {
     }
 
     if ($segments === ['routes'] && $method === 'GET') {
-        authenticatedUser($config);
+        $user = authenticatedUser($config);
+        guardLookups(database($config), $user['id']);
         $from = explode(',', (string)($_GET['from'] ?? ''));
         $to = explode(',', (string)($_GET['to'] ?? ''));
         if (count($from) !== 2 || count($to) !== 2 || !validPoint($from[0], $from[1], $config) || !validPoint($to[0], $to[1], $config)) {
@@ -625,8 +687,8 @@ try {
         $user = authenticatedUser($config);
         requireRole($user, 'passenger', 'admin');
         $input = body();
-        $pickup = trim((string)($input['pickup'] ?? ''));
-        $destination = trim((string)($input['destination'] ?? ''));
+        $pickup = textField($input, 'pickup', 255);
+        $destination = textField($input, 'destination', 255);
         if ($pickup === '' || $destination === '') throw new ApiError(422, 'Pickup and destination are required.');
         $pickupPoint = $input['pickupPosition'] ?? null;
         $destinationPoint = $input['destinationPosition'] ?? null;
@@ -636,8 +698,9 @@ try {
         }
         if (!validPoint($pickupPoint['lat'], $pickupPoint['lng'], $config)) throw new ApiError(422, 'Pickup location is invalid or outside the service area.');
         if (!validPoint($destinationPoint['lat'], $destinationPoint['lng'], $config)) throw new ApiError(422, 'Destination location is invalid or outside the service area.');
-        $rideType = (string)($input['rideType'] ?? 'regular');
-        $discount = (string)($input['discount'] ?? 'none');
+        $rideType = textField($input, 'rideType', 20, 'regular');
+        $discount = textField($input, 'discount', 20, 'none');
+        $note = textField($input, 'note', 500);
         try {
             $estimate = quoteFare(
                 loadFareRules(database($config)),
@@ -665,12 +728,18 @@ try {
         $route = routeBetween($pdo, $config, (float)$pickupPoint['lat'], (float)$pickupPoint['lng'], (float)$destinationPoint['lat'], (float)$destinationPoint['lng']);
         $pdo->beginTransaction();
         try {
+            // One active booking per passenger. Locking the user row makes two quick taps book once.
+            $pdo->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$user['id']]);
+            $open = $pdo->prepare("SELECT id FROM rides WHERE passenger_id = ? AND status IN ('finding', 'accepted', 'arriving', 'in_progress') LIMIT 1");
+            $open->execute([$user['id']]);
+            $openRide = $open->fetchColumn();
+            if ($openRide) throw new ApiError(409, 'You already have an active booking. Finish or cancel it before booking another ride.', ['ride_id' => (string)$openRide]);
             $stmt = $pdo->prepare('INSERT INTO rides (passenger_id, pickup_label, pickup_lat, pickup_lng, destination_label, destination_lat, destination_lng, municipality, ride_type, discount_type, note, distance_km, distance_method, estimated_fare, fare_distance_km, fare_breakdown_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
             $stmt->execute([
                 $user['id'], $pickup, $pickupPoint['lat'], $pickupPoint['lng'],
                 $destination, $destinationPoint['lat'], $destinationPoint['lng'],
                 $estimate['municipality'], $rideType, $discount,
-                mb_substr(trim((string)($input['note'] ?? '')), 0, 500) ?: null,
+                $note !== '' ? $note : null,
                 round($route['distance_m'] / 1000, 2), $route['fallback'] ? 'haversine_fallback' : 'road',
                 $estimate['total'], $estimate['distance_km'], json_encode($estimate, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             ]);
@@ -680,6 +749,12 @@ try {
         } catch (Throwable $error) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $error;
+        }
+        // Alert nearby drivers; a problem here must never undo the booking.
+        try {
+            queueRideRequestPushes($pdo, $rideId);
+        } catch (Throwable $error) {
+            error_log('PASAKJA ride request push failed: ' . $error->getMessage());
         }
         respond(['ride' => ['id' => $rideId, 'status' => 'finding', 'municipality' => $estimate['municipality'], 'estimated_fare' => $estimate['total'], 'fare_distance_km' => $estimate['distance_km'], 'fare_breakdown' => $estimate]], 201);
     }
@@ -712,7 +787,12 @@ try {
         $stmt->execute([$rideId]);
         $ride = $stmt->fetch();
         if (!$ride) throw new ApiError(404, 'Ride not found.');
-        $canRead = $user['role'] === 'admin' || (int)$ride['passenger_id'] === (int)$user['id'] || ((int)($ride['driver_id'] ?? 0) === (int)$user['id']) || ($user['role'] === 'driver' && $ride['status'] === 'finding');
+        $canRead = $user['role'] === 'admin' || (int)$ride['passenger_id'] === (int)$user['id'] || ((int)($ride['driver_id'] ?? 0) === (int)$user['id']);
+        if (!$canRead && $user['role'] === 'driver' && $ride['status'] === 'finding') {
+            $approved = $pdo->prepare("SELECT 1 FROM driver_profiles WHERE user_id = ? AND verification_status = 'verified'");
+            $approved->execute([$user['id']]);
+            $canRead = (bool)$approved->fetchColumn();
+        }
         if (!$canRead) throw new ApiError(403, 'You cannot view this ride.');
         respond(['ride' => rideFarePayload($ride)]);
     }
@@ -730,6 +810,15 @@ try {
             if (!dispatchMayAccept($pdo, (int)$rideId, $user['id'])) throw new ApiError(409, 'This ride is being offered to a closer driver first. It opens to you if they do not accept.');
         }
         $pdo->beginTransaction();
+        if ($user['role'] === 'driver') {
+            $pdo->prepare('SELECT user_id FROM driver_profiles WHERE user_id = ? FOR UPDATE')->execute([$user['id']]);
+            $busy = $pdo->prepare("SELECT 1 FROM rides WHERE driver_id = ? AND status IN ('accepted', 'arriving', 'in_progress') LIMIT 1");
+            $busy->execute([$user['id']]);
+            if ($busy->fetchColumn()) {
+                $pdo->rollBack();
+                throw new ApiError(409, 'Finish your current ride before accepting another one.');
+            }
+        }
         $stmt = $pdo->prepare("UPDATE rides SET driver_id = ?, status = 'accepted', accepted_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'finding' AND driver_id IS NULL");
         $stmt->execute([$user['id'], $rideId]);
         if ($stmt->rowCount() !== 1) {
@@ -751,12 +840,17 @@ try {
         $rideId = filter_var($segments[1], FILTER_VALIDATE_INT);
         if (!$rideId) throw new ApiError(404, 'Ride not found.');
         $pdo = database($config);
+        if ($user['role'] === 'driver') {
+            $approved = $pdo->prepare("SELECT 1 FROM driver_profiles WHERE user_id = ? AND verification_status = 'verified'");
+            $approved->execute([$user['id']]);
+            if (!$approved->fetchColumn()) throw new ApiError(403, 'Your driver account must be approved before handling ride requests.');
+        }
         $rideCheck = $pdo->prepare("SELECT id FROM rides WHERE id = ? AND status = 'finding' AND driver_id IS NULL");
         $rideCheck->execute([$rideId]);
         if (!$rideCheck->fetch()) throw new ApiError(409, 'This ride is no longer available.');
         $stmt = $pdo->prepare('INSERT IGNORE INTO ride_driver_declines (ride_id, driver_id) VALUES (?, ?)');
         $stmt->execute([$rideId, $user['id']]);
-        logRideEvent($pdo, (int)$rideId, (int)$user['id'], 'driver_declined', 'Driver declined this request.');
+        if ($stmt->rowCount() === 1) logRideEvent($pdo, (int)$rideId, (int)$user['id'], 'driver_declined', 'Driver declined this request.');
         respond(['ride' => ['id' => (int)$rideId, 'status' => 'finding']]);
     }
 
