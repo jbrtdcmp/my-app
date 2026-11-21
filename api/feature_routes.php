@@ -36,6 +36,37 @@ function userProfileExtras(PDO $pdo, int $userId): array
     return $stmt->fetch() ?: ['municipality' => null, 'avatar_data' => null];
 }
 
+/** Columns for the admin Accounts list: who the user is, their status and completed rides. */
+const ADMIN_ACCOUNT_SELECT = "SELECT u.id, u.full_name, u.phone, u.email, u.role, u.municipality, u.is_active, u.suspended_at, u.suspension_reason, u.created_at,
+        dp.verification_status,
+        (SELECT COUNT(*) FROM rides r WHERE (r.passenger_id = u.id OR r.driver_id = u.id) AND r.status = 'completed') AS completed_rides
+    FROM users u LEFT JOIN driver_profiles dp ON dp.user_id = u.id";
+
+function adminAccountRow(PDO $pdo, int $userId): ?array
+{
+    $stmt = $pdo->prepare(ADMIN_ACCOUNT_SELECT . ' WHERE u.id = ?');
+    $stmt->execute([$userId]);
+    return $stmt->fetch() ?: null;
+}
+
+function adminAccountPayload(array $row): array
+{
+    return [
+        'id' => (int)$row['id'],
+        'name' => $row['full_name'],
+        'phone' => $row['phone'],
+        'email' => $row['email'],
+        'role' => $row['role'],
+        'municipality' => $row['municipality'],
+        'status' => (int)$row['is_active'] ? 'active' : 'suspended',
+        'suspended_at' => $row['suspended_at'],
+        'suspension_reason' => $row['suspension_reason'],
+        'driver_status' => $row['verification_status'],
+        'completed_rides' => (int)$row['completed_rides'],
+        'created_at' => $row['created_at'],
+    ];
+}
+
 function routeId(string $segment): int
 {
     $id = filter_var($segment, FILTER_VALIDATE_INT);
@@ -81,8 +112,8 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         $identifier = trim((string)(body()['identifier'] ?? ''));
         if ($identifier === '') throw new ApiError(422, 'Enter the phone number or email on your account.');
         $pdo = database($config);
-        $stmt = $pdo->prepare('SELECT id, full_name, phone, role FROM users WHERE (phone = :identifier OR email = :email) AND is_active = 1 LIMIT 1');
-        $stmt->execute(['identifier' => preg_replace('/\s+/', '', $identifier), 'email' => strtolower($identifier)]);
+        $stmt = $pdo->prepare('SELECT id, full_name, phone, role FROM users WHERE (phone = :identifier OR phone = :normalized OR email = :email) AND is_active = 1 LIMIT 1');
+        $stmt->execute(['identifier' => preg_replace('/\s+/', '', $identifier), 'normalized' => normalizePhilippinePhone($identifier), 'email' => strtolower($identifier)]);
         $account = $stmt->fetch();
         if ($account) {
             $recent = $pdo->prepare('SELECT COUNT(*) FROM password_reset_requests WHERE user_id = ? AND requested_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 1 DAY)');
@@ -113,6 +144,49 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         respond(['ok' => true]);
     }
 
+    // ---- Edit profile: name, phone, email and home town. The phone and email are what the
+    // user signs in with, so changing either needs the current password.
+    if ($segments === ['me'] && $method === 'PATCH') {
+        $user = authenticatedUser($config);
+        $input = body();
+        [$details, $errors] = validateAccountDetails($input);
+        if ($errors) throw new ApiError(422, 'Please correct the highlighted fields.', $errors);
+        $pdo = database($config);
+        $stmt = $pdo->prepare('SELECT phone, email, municipality, avatar_data, password_hash FROM users WHERE id = ?');
+        $stmt->execute([$user['id']]);
+        $current = $stmt->fetch();
+        // 0917…, 917… and +63917… are the same number: keep the stored one unless the number itself changed.
+        $phoneChanged = normalizePhilippinePhone((string)$current['phone']) !== $details['phone'];
+        $phone = $phoneChanged ? $details['phone'] : (string)$current['phone'];
+        $emailChanged = strtolower((string)($current['email'] ?? '')) !== (string)($details['email'] ?? '');
+        // Admins have no home town field; leave it alone when the form doesn't send one.
+        $town = array_key_exists('municipality', $input) ? $details['municipality'] : $current['municipality'];
+        if ($phoneChanged || $emailChanged) {
+            $password = (string)($input['current_password'] ?? '');
+            if ($password === '') throw new ApiError(422, 'Enter your current password to change your phone number or email.', ['current_password' => 'Enter your current password.']);
+            if (!password_verify($password, (string)$current['password_hash'])) throw new ApiError(422, 'Your current password is incorrect.', ['current_password' => 'Incorrect password.']);
+        }
+        if ($phoneChanged) {
+            $variants = phoneVariants($phone);
+            $taken = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id <> ? AND phone IN (' . implode(', ', array_fill(0, count($variants), '?')) . ')');
+            $taken->execute([$user['id'], ...$variants]);
+            if ((int)$taken->fetchColumn() > 0) throw new ApiError(409, 'That phone number is already used by another account.', ['phone' => 'Already used by another account.']);
+        }
+        if ($emailChanged && $details['email'] !== null) {
+            $taken = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id <> ? AND email = ?');
+            $taken->execute([$user['id'], $details['email']]);
+            if ((int)$taken->fetchColumn() > 0) throw new ApiError(409, 'That email is already used by another account.', ['email' => 'Already used by another account.']);
+        }
+        try {
+            $pdo->prepare('UPDATE users SET full_name = ?, phone = ?, email = ?, municipality = ? WHERE id = ?')
+                ->execute([$details['name'], $phone, $details['email'], $town, $user['id']]);
+        } catch (PDOException $error) {
+            if ((string)$error->getCode() === '23000') throw new ApiError(409, 'That phone number or email is already used by another account.');
+            throw $error;
+        }
+        respond(['user' => publicUser(['id' => $user['id'], 'full_name' => $details['name'], 'phone' => $phone, 'email' => $details['email'], 'role' => $user['role'], 'municipality' => $town, 'avatar_data' => $current['avatar_data']])]);
+    }
+
     // ---- Profile photo.
     if ($segments === ['me', 'avatar'] && $method === 'PUT') {
         $user = authenticatedUser($config);
@@ -130,6 +204,41 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         respond(['avatar' => null]);
     }
 
+    // ---- Driver ID photo: admins view it before approving; drivers upload or replace it.
+    if (count($segments) === 4 && $segments[0] === 'admin' && $segments[1] === 'drivers' && $segments[3] === 'id-photo' && $method === 'GET') {
+        $admin = authenticatedUser($config);
+        requireRole($admin, 'admin');
+        $driverId = routeId($segments[2]);
+        $pdo = database($config);
+        $stmt = $pdo->prepare('SELECT id_photo_data, id_photo_uploaded_at FROM driver_profiles WHERE user_id = ?');
+        $stmt->execute([$driverId]);
+        $row = $stmt->fetch();
+        if (!$row) throw new ApiError(404, 'Driver not found.');
+        if ($row['id_photo_data'] === null) throw new ApiError(404, 'This driver has not uploaded an ID photo yet.');
+        // IDs are personal data, so every view is recorded.
+        logAdminActivity($pdo, $admin['id'], 'driver.id_photo_viewed', 'driver', $driverId);
+        respond(['photo' => $row['id_photo_data'], 'uploaded_at' => $row['id_photo_uploaded_at']]);
+    }
+    if ($segments === ['driver', 'id-photo'] && $method === 'PUT') {
+        $user = authenticatedUser($config);
+        requireRole($user, 'driver');
+        try {
+            $photo = validatedIdPhotoDataUrl((string)(body()['image'] ?? ''));
+        } catch (InvalidArgumentException $error) {
+            throw new ApiError(422, $error->getMessage());
+        }
+        $pdo = database($config);
+        $current = $pdo->prepare('SELECT verification_status, plate_number FROM driver_profiles WHERE user_id = ?');
+        $current->execute([$user['id']]);
+        $profile = $current->fetch();
+        if (!$profile) throw new ApiError(404, 'Driver profile not found.');
+        if ($profile['verification_status'] === 'verified') throw new ApiError(409, 'Your account is already verified. Ask an admin if your ID needs to be updated.');
+        // A rejected driver who sends a new ID goes back into the review queue.
+        $pdo->prepare("UPDATE driver_profiles SET id_photo_data = ?, id_photo_uploaded_at = CURRENT_TIMESTAMP, verification_status = 'pending' WHERE user_id = ?")->execute([$photo, $user['id']]);
+        notifyAdmins($pdo, 'driver_id_uploaded', 'Driver ID uploaded', "{$user['full_name']} (plate {$profile['plate_number']}) uploaded an ID photo for review.", $user['id']);
+        respond(['verification_status' => 'pending', 'has_id_photo' => true]);
+    }
+
     // ---- Alerts feed: community notices for the user's town plus their own notices.
     if ($segments === ['alerts'] && $method === 'GET') {
         $user = authenticatedUser($config);
@@ -144,6 +253,51 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
         foreach ($own->fetchAll() as $row) $items[] = ['key' => 'n' . $row['id'], 'kind' => 'notification', 'type' => $row['type'], 'title' => $row['title'], 'message' => $row['message'], 'municipality' => null, 'reference_id' => $row['reference_id'] === null ? null : (int)$row['reference_id'], 'created_at' => $row['created_at']];
         usort($items, static fn(array $a, array $b): int => strcmp((string)$b['created_at'], (string)$a['created_at']));
         respond(['items' => array_slice($items, 0, 60), 'municipality' => $town]);
+    }
+
+    // ---- Admin: passenger and driver accounts, with suspend and reactivate.
+    if ($segments === ['admin', 'accounts'] && $method === 'GET') {
+        requireRole(authenticatedUser($config), 'admin');
+        $rows = database($config)->query(ADMIN_ACCOUNT_SELECT . " WHERE u.role IN ('passenger', 'driver') ORDER BY u.is_active ASC, u.created_at DESC, u.id DESC LIMIT 2000")->fetchAll();
+        respond(['accounts' => array_map('adminAccountPayload', $rows)]);
+    }
+    if (count($segments) === 4 && $segments[0] === 'admin' && $segments[1] === 'accounts' && in_array($segments[3], ['suspend', 'reactivate'], true) && $method === 'POST') {
+        $admin = authenticatedUser($config);
+        requireRole($admin, 'admin');
+        $accountId = routeId($segments[2]);
+        $pdo = database($config);
+        $account = adminAccountRow($pdo, $accountId);
+        if (!$account || !in_array($account['role'], ['passenger', 'driver'], true)) throw new ApiError(404, 'Account not found.');
+
+        if ($segments[3] === 'suspend') {
+            if (!(int)$account['is_active']) throw new ApiError(409, 'This account is already suspended.');
+            try {
+                $reason = validatedSuspensionReason((string)(body()['reason'] ?? ''));
+            } catch (InvalidArgumentException $error) {
+                throw new ApiError(422, $error->getMessage(), ['reason' => $error->getMessage()]);
+            }
+            // Ending a ride halfway would leave the other person stranded in the app.
+            $busy = $pdo->prepare("SELECT COUNT(*) FROM rides WHERE (passenger_id = ? OR driver_id = ?) AND status IN ('finding', 'accepted', 'arriving', 'in_progress')");
+            $busy->execute([$accountId, $accountId]);
+            if ((int)$busy->fetchColumn() > 0) throw new ApiError(409, 'This user is on an active ride. Suspend the account after the ride ends or is cancelled.');
+            $pdo->beginTransaction();
+            try {
+                $pdo->prepare('UPDATE users SET is_active = 0, suspended_at = CURRENT_TIMESTAMP, suspension_reason = ? WHERE id = ?')->execute([$reason, $accountId]);
+                // Signs the user out everywhere; a driver also stops getting ride requests.
+                $pdo->prepare('UPDATE api_tokens SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = ? AND revoked_at IS NULL')->execute([$accountId]);
+                logAdminActivity($pdo, $admin['id'], 'account.suspended', 'user', $accountId, ['role' => $account['role'], 'reason' => $reason]);
+                $pdo->commit();
+            } catch (Throwable $error) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $error;
+            }
+        } else {
+            if ((int)$account['is_active']) throw new ApiError(409, 'This account is already active.');
+            $pdo->prepare('UPDATE users SET is_active = 1, suspended_at = NULL, suspension_reason = NULL WHERE id = ?')->execute([$accountId]);
+            logAdminActivity($pdo, $admin['id'], 'account.reactivated', 'user', $accountId, ['role' => $account['role']]);
+            notifyUser($pdo, $accountId, 'account_reactivated', 'Your account is active again', 'A PASAKJA admin reactivated your account. You can book or accept rides again.');
+        }
+        respond(['account' => adminAccountPayload(adminAccountRow($pdo, $accountId))]);
     }
 
     // ---- Admin: community alerts.
@@ -276,11 +430,13 @@ function handleFeatureRoutes(array $segments, string $method, array $config): vo
 
         $base = rtrim((string)($config['nominatim_base_url'] ?? 'https://nominatim.openstreetmap.org'), '/');
         $curl = curl_init($base . '/reverse?' . http_build_query(['format' => 'jsonv2', 'lat' => $lat, 'lon' => $lng, 'zoom' => 18, 'addressdetails' => 1, 'accept-language' => 'en']));
-        curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT_MS => 1500, CURLOPT_TIMEOUT_MS => 4000, CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_USERAGENT => (string)($config['osrm_user_agent'] ?? 'PASAKJA/1.0 (tricycle ride booking)')]);
+        // IPv4 avoids slow first connections on some networks; OpenStreetMap can take a few seconds when busy.
+        curl_setopt_array($curl, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT_MS => 3000, CURLOPT_TIMEOUT_MS => 6000, CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4, CURLOPT_FOLLOWLOCATION => false, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP, CURLOPT_USERAGENT => (string)($config['osrm_user_agent'] ?? 'PASAKJA/1.0 (tricycle ride booking)')]);
         $response = curl_exec($curl);
         $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
-        if (!is_string($response) || $status !== 200) respond(['label' => null]); // not cached, so the next pin tries again
+        // A failed lookup isn't cached, and "retry" tells the app to try once more.
+        if (!is_string($response) || $status !== 200) respond(['label' => null, 'retry' => true]);
         $decoded = json_decode($response, true);
         $label = is_array($decoded) ? placeLabelFromNominatim($decoded) : null;
         $pdo->prepare('REPLACE INTO place_name_cache (cache_key, label, expires_at) VALUES (?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? DAY))')

@@ -34,7 +34,7 @@ function ReviewModal({ onSubmit, onClose, driver, error, busy }: { onSubmit: (st
   </div>;
 }
 
-export default function RideTracking({ onComplete, isDriver = false, rideId }: { onComplete: () => void; isDriver?: boolean; rideId: number | null }) {
+export default function RideTracking({ onComplete, onCancelled = onComplete, isDriver = false, rideId }: { onComplete: () => void; onCancelled?: () => void; isDriver?: boolean; rideId: number | null }) {
   const [snapshot, setSnapshot] = useState<TrackingSnapshot | null>(null);
   const [displayPosition, setDisplayPosition] = useState<TrackingPoint | null>(null);
   const [serverStatus, setServerStatus] = useState('accepted');
@@ -109,7 +109,7 @@ export default function RideTracking({ onComplete, isDriver = false, rideId }: {
   };
 
   const cancelCurrentRide = async () => {
-    try { if (rideId) await cancelRide(rideId); onComplete(); }
+    try { if (rideId) await cancelRide(rideId); onCancelled(); }
     catch (error) { setTrackingError(error instanceof Error ? error.message : 'Could not cancel this ride.'); setShowCancel(false); }
   };
 

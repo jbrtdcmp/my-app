@@ -126,7 +126,10 @@ for (const [pattern, message] of [
   [/aria-pressed=\{showPassword\}/, 'Auth password visibility must expose its toggle state'],
   [/<IconAlertCircle size=\{14\}\/>/, 'Auth field errors must use an alert icon'],
   [/accept="image\/\*"/, 'Driver ID upload must restrict selection to images'],
-  [/file\.size > 2 \* 1024 \* 1024/, 'Driver ID upload must enforce the 2 MB image limit'],
+  // Phone photos are often 2-5 MB, so the picker allows up to 15 MB and the photo
+  // is shrunk in the browser before upload (the API refuses anything over ~700 KB).
+  [/file\.size > \d+ \* 1024 \* 1024/, 'Driver ID upload must enforce a file size limit'],
+  [/resizeImageFile\(idPhoto, ID_PHOTO_SIZE\)/, 'Driver ID photo must be resized before upload'],
   [/className="auth-photo-preview"/, 'Driver ID upload must render its selected image preview'],
 ]) {
   if (!pattern.test(authSource)) failures.push(`Auth UI check: ${message}`);

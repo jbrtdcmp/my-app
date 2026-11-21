@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconMap, IconProfile, IconSearch, IconShield } from '../components/Icons';
+import { IconAdmin, IconAlerts, IconBookings, IconChart, IconCheckCircle, IconDriver, IconFile, IconMap, IconProfile, IconSearch, IconShield, IconUsers } from '../components/Icons';
 import { DataTable, ErrorState, StatCard as SharedStatCard, StatusBadge } from '../components/ui';
-import { getAdminDrivers, getAdminSos, getAdminSummary, getEmergencyContacts, resolveSos, updateEmergencyContact, verifyDriver, type AdminSummary, type EmergencyContact, type SosEvent } from '../services/api';
+import { getAdminDrivers, getAdminSos, getAdminSummary, getEmergencyContacts, resolveSos, updateEmergencyContact, verifyDriver, type AdminDriver, type AdminSummary, type EmergencyContact, type SosEvent } from '../services/api';
+import AccountManager from './admin/AccountManager';
 import AlertComposer from './admin/AlertComposer';
+import DriverIdDialog from './admin/DriverIdDialog';
 import FareEditor from './admin/FareEditor';
 import PasswordResets from './admin/PasswordResets';
 
 const DRIVERS_PER_PAGE = 8;
 
-export type AdminTab = 'overview' | 'drivers' | 'fares' | 'alerts' | 'sos';
+export type AdminTab = 'overview' | 'drivers' | 'accounts' | 'fares' | 'alerts' | 'sos';
 
 const TAB_LABELS: { id: AdminTab; label: string; Icon: React.FC<{ size?: number; className?: string }> }[] = [
   { id: 'overview', label: 'Overview', Icon: IconAdmin },
   { id: 'drivers', label: 'Drivers', Icon: IconDriver },
+  { id: 'accounts', label: 'Accounts', Icon: IconUsers },
   { id: 'fares', label: 'Fares', Icon: IconMap },
   { id: 'alerts', label: 'Alerts', Icon: IconAlerts },
   { id: 'sos', label: 'SOS', Icon: IconShield },
@@ -49,6 +52,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
   const [drivers, setDrivers] = useState<Awaited<ReturnType<typeof getAdminDrivers>>>([]);
   const [driversError, setDriversError] = useState('');
   const [updatingDriver, setUpdatingDriver] = useState<number | null>(null);
+  const [reviewDriver, setReviewDriver] = useState<AdminDriver | null>(null);
   const [driverQuery, setDriverQuery] = useState('');
   const [driverPage, setDriverPage] = useState(1);
   // Search matches name, phone, plate, body number, TODA or status.
@@ -129,8 +133,10 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
     { key: 'body', label: 'Body No.', render: (driver: typeof drivers[number]) => driver.body_number },
     { key: 'toda', label: 'TODA', render: (driver: typeof drivers[number]) => driver.toda_name },
     { key: 'location', label: 'Last location', render: (driver: typeof drivers[number]) => driver.last_seen_at ? new Date(driver.last_seen_at).toLocaleString() : 'Never shared location' },
+    { key: 'id', label: 'License / ID', render: (driver: typeof drivers[number]) => driver.has_id_photo ? <span className="text-xs font-semibold text-success">Uploaded</span> : <span className="text-xs font-semibold text-danger">Missing</span> },
     { key: 'status', label: 'Status', render: (driver: typeof drivers[number]) => <StatusBadge status={driver.verification_status}/> },
-    { key: 'actions', label: 'Actions', render: (driver: typeof drivers[number]) => <div className="flex flex-wrap gap-2">{driver.verification_status !== 'verified' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'verified')} className="text-xs font-semibold text-success">Approve</button>}{driver.verification_status !== 'rejected' && <button disabled={updatingDriver === driver.id} onClick={() => void setDriverStatus(driver.id, 'rejected')} className="text-xs font-semibold text-danger">Reject</button>}</div> },
+    // Approving happens in the ID dialog, so the admin always sees the license first.
+    { key: 'actions', label: 'Actions', render: (driver: typeof drivers[number]) => <button type="button" onClick={() => setReviewDriver(driver)} className="text-link text-xs">{driver.verification_status === 'pending' ? 'Review ID' : 'View ID'}</button> },
   ];
 
   return (
@@ -259,6 +265,16 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             </div>
           </div>
         )}
+        {reviewDriver && (
+          <DriverIdDialog
+            driver={reviewDriver}
+            busy={updatingDriver === reviewDriver.id}
+            onClose={() => setReviewDriver(null)}
+            onDecision={status => { void setDriverStatus(reviewDriver.id, status).then(() => setReviewDriver(null)); }}
+          />
+        )}
+
+        {tab === 'accounts' && <AccountManager/>}
 
         {tab === 'fares' && (
           <div className="app-card">
@@ -280,7 +296,7 @@ export default function AdminDashboard({ initialTab = 'overview', onTabChange }:
             {sosError && <ErrorState message={sosError}/>}
             {sosEvents.length === 0 && !sosError && <p className="app-card text-sm text-ink-soft">No SOS alerts have been sent.</p>}
             {sosEvents.map(event => <article key={event.id} className={`app-card ${event.status === 'active' ? 'border-danger' : ''}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{event.full_name || 'PASAKJA user'} <span className="font-normal capitalize text-ink-soft">· {event.role}</span></p><p className="mt-1 text-xs text-ink-soft">{event.municipality || 'Location not provided'} · {new Date(event.created_at).toLocaleString()}</p></div><StatusBadge status={event.status === 'active' ? 'sos-active' : event.status} label={event.status}/></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-ink">{event.full_name || 'PASAKJA user'} <span className="font-normal capitalize text-ink-soft">· {event.role}</span></p><p className="mt-1 text-xs text-ink-soft">{event.municipality || event.user_municipality || 'Town not set'}{event.phone ? ` · ${event.phone}` : ''} · {new Date(event.created_at).toLocaleString()}{event.latitude === null || event.longitude === null ? ' · No location shared' : ''}</p></div><StatusBadge status={event.status === 'active' ? 'sos-active' : event.status} label={event.status}/></div>
               {(event.latitude !== null && event.longitude !== null) && <a className="mt-2 inline-block text-sm text-orange-dark underline" href={`https://www.openstreetmap.org/?mlat=${event.latitude}&mlon=${event.longitude}#map=16/${event.latitude}/${event.longitude}`} target="_blank" rel="noreferrer">Open reported location</a>}
               {(event.driver_name || event.plate_number) && <p className="mt-2 text-sm text-ink-soft">Driver: {event.driver_name || '—'}{event.plate_number ? ` · ${event.plate_number}` : ''}</p>}
               {event.status === 'active' && <button type="button" disabled={resolvingSos === event.id} onClick={() => void resolveAlert(event.id)} className="btn-secondary mt-3 px-4 py-2">{resolvingSos === event.id ? 'Updating…' : 'Mark resolved'}</button>}

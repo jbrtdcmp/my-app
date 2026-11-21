@@ -23,6 +23,9 @@ export interface AuthPayload {
   licenseNumber: string;
   todaName: string;
   municipality?: string;
+  // Drivers only: resized photo of their license or ID (data URL) and vehicle type.
+  idPhoto?: string;
+  vehicleType?: string;
 }
 
 export interface RideRequest {
@@ -122,7 +125,7 @@ export interface TrackingSnapshot {
   route_fallback: boolean | null;
 }
 
-export interface SosEvent { id: number; ride_id: number | null; user_id: number; role: string; latitude: number | null; longitude: number | null; status: 'active' | 'resolved'; note: string | null; created_at: string; resolved_at: string | null; full_name?: string; phone?: string; municipality?: string; pickup_label?: string; destination_label?: string; driver_name?: string; plate_number?: string }
+export interface SosEvent { id: number; ride_id: number | null; user_id: number; role: string; latitude: number | null; longitude: number | null; status: 'active' | 'resolved'; note: string | null; created_at: string; resolved_at: string | null; full_name?: string; phone?: string; municipality?: string; user_municipality?: string | null; pickup_label?: string; destination_label?: string; driver_name?: string; plate_number?: string }
 export interface EmergencyContact { id: number; municipality: string; service: string; label: string; phone: string | null; is_placeholder: number }
 
 export class ApiError extends Error {
@@ -266,9 +269,15 @@ export async function sendDriverLocation(point: { lat: number; lng: number; head
   await request('driver/location', { method: 'POST', body: JSON.stringify(point) });
 }
 
-export async function getDriverProfile(): Promise<{ id: number; full_name: string; plate_number: string; body_number: string; toda_name: string; verification_status: string; total_rides: number; rides_today: number; earnings_today: number; rating: number }> {
-  const result = await request<{ profile: { id: number; full_name: string; plate_number: string; body_number: string; toda_name: string; verification_status: string; total_rides: number; rides_today: number; earnings_today: number; rating: number } }>('driver/profile');
-  return result.profile;
+export interface DriverProfile { id: number; full_name: string; plate_number: string; body_number: string; license_number: string | null; toda_name: string; vehicle_type: string | null; has_id_photo: boolean; id_photo_uploaded_at: string | null; verification_status: string; total_rides: number; rides_today: number; earnings_today: number; rides_week: number; earnings_week: number; rides_month: number; earnings_month: number; earnings_total: number; rating: number }
+
+export async function getDriverProfile(): Promise<DriverProfile> {
+  const result = await request<{ profile: Omit<DriverProfile, 'has_id_photo'> & { has_id_photo: number | string | boolean } }>('driver/profile');
+  return { ...result.profile, has_id_photo: Boolean(Number(result.profile.has_id_photo)) };
+}
+
+export async function uploadDriverIdPhoto(image: string): Promise<void> {
+  await request('driver/id-photo', { method: 'PUT', body: JSON.stringify({ image }) });
 }
 
 export async function getRideTracking(rideId: number): Promise<TrackingSnapshot> {
@@ -303,8 +312,10 @@ export async function revokeTripShare(rideId: number): Promise<void> {
   await request(`rides/${rideId}/share/revoke`, { method: 'POST', body: '{}' });
 }
 
-export async function getPublicTrip(token: string): Promise<{ status: string; pickup: string; destination: string; driver: { name: string; plate_number: string } | null; position: { lat: number; lng: number; heading: number | null } | null; stale: boolean }> {
-  const result = await request<{ trip: { status: string; pickup: string; destination: string; driver: { name: string; plate_number: string } | null; position: { lat: number; lng: number; heading: number | null } | null; stale: boolean } }>(`trip/${encodeURIComponent(token)}`);
+export interface PublicTripInfo { status: string; municipality: string | null; pickup: string; destination: string; driver: { name: string; plate_number: string } | null; position: { lat: number; lng: number; heading: number | null } | null; stale: boolean }
+
+export async function getPublicTrip(token: string): Promise<PublicTripInfo> {
+  const result = await request<{ trip: PublicTripInfo }>(`trip/${encodeURIComponent(token)}`);
   return result.trip;
 }
 
@@ -323,13 +334,52 @@ export async function updateEmergencyContact(contactId: number, phone: string): 
   await request(`admin/emergency-contacts/${contactId}`, { method: 'PATCH', body: JSON.stringify({ phone }) });
 }
 
-export async function getAdminDrivers(): Promise<Array<{ id: number; full_name: string; phone: string; plate_number: string; body_number: string; toda_name: string; verification_status: string; last_seen_at: string | null }>> {
-  const result = await request<{ drivers: Array<{ id: number; full_name: string; phone: string; plate_number: string; body_number: string; toda_name: string; verification_status: string; last_seen_at: string | null }> }>('admin/drivers');
+export interface AdminDriver { id: number; full_name: string; phone: string; plate_number: string; body_number: string; license_number: string | null; toda_name: string; vehicle_type: string | null; has_id_photo: boolean; id_photo_uploaded_at: string | null; verification_status: string; last_seen_at: string | null }
+
+export async function getAdminDrivers(): Promise<AdminDriver[]> {
+  const result = await request<{ drivers: AdminDriver[] }>('admin/drivers');
   return result.drivers;
+}
+
+// The ID photo is personal data: only admins can load it, one driver at a time, and each view is logged.
+export async function getDriverIdPhoto(driverId: number): Promise<{ photo: string; uploaded_at: string | null }> {
+  return request(`admin/drivers/${driverId}/id-photo`);
 }
 
 export async function verifyDriver(driverId: number, verification_status: 'verified' | 'rejected' | 'pending'): Promise<void> {
   await request(`admin/drivers/${driverId}`, { method: 'PATCH', body: JSON.stringify({ verification_status }) });
+}
+
+// ---- Admin: passenger and driver accounts
+export interface AdminAccount {
+  id: number;
+  name: string;
+  phone: string;
+  email: string | null;
+  role: 'passenger' | 'driver';
+  municipality: string | null;
+  status: 'active' | 'suspended';
+  suspended_at: string | null;
+  suspension_reason: string | null;
+  // Driver approval status; null for passengers.
+  driver_status: string | null;
+  completed_rides: number;
+  created_at: string;
+}
+
+export async function getAdminAccounts(): Promise<AdminAccount[]> {
+  const result = await request<{ accounts: AdminAccount[] }>('admin/accounts');
+  return result.accounts;
+}
+
+export async function suspendAccount(accountId: number, reason: string): Promise<AdminAccount> {
+  const result = await request<{ account: AdminAccount }>(`admin/accounts/${accountId}/suspend`, { method: 'POST', body: JSON.stringify({ reason }) });
+  return result.account;
+}
+
+export async function reactivateAccount(accountId: number): Promise<AdminAccount> {
+  const result = await request<{ account: AdminAccount }>(`admin/accounts/${accountId}/reactivate`, { method: 'POST' });
+  return result.account;
 }
 
 // ---- Account: forgot password, change password, profile photo
@@ -341,6 +391,30 @@ export async function requestPasswordReset(identifier: string): Promise<string> 
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   await request('auth/password', { method: 'POST', body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+}
+
+export interface ProfileUpdate {
+  name: string;
+  phone: string;
+  email: string;
+  // Left out for admins, whose profile has no home town.
+  municipality?: string;
+  // Needed only when the phone number or email changes.
+  currentPassword?: string;
+}
+
+export async function updateProfile(input: ProfileUpdate): Promise<ApiUser> {
+  const result = await request<{ user: ApiUser }>('me', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      ...(input.municipality === undefined ? {} : { municipality: input.municipality }),
+      current_password: input.currentPassword ?? '',
+    }),
+  });
+  return result.user;
 }
 
 export async function saveAvatar(image: string): Promise<string> {
@@ -423,6 +497,10 @@ export async function saveDiscounts(discounts: AdminFares['discounts']): Promise
 // ---- Place names for map pins
 
 export async function lookupPlaceName(point: { lat: number; lng: number }): Promise<string | null> {
-  const result = await request<{ label: string | null }>(`places/reverse?lat=${point.lat.toFixed(5)}&lng=${point.lng.toFixed(5)}`);
-  return result.label;
+  const path = `places/reverse?lat=${point.lat.toFixed(5)}&lng=${point.lng.toFixed(5)}`;
+  const first = await request<{ label: string | null; retry?: boolean }>(path);
+  if (first.label || !first.retry) return first.label;
+  // OpenStreetMap was busy or slow: wait a moment and try once more.
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  return (await request<{ label: string | null }>(path)).label;
 }

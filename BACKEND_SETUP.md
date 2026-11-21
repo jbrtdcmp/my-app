@@ -9,7 +9,7 @@ The API uses expiring bearer tokens, hashed passwords, and PDO prepared statemen
 ## One-time local setup
 
 1. Start **Apache** and **MySQL** in the XAMPP Control Panel.
-2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables. Then import each file in `database/migrations/` in date order (oldest first): they add fares, live tracking, community alerts, password-reset requests and profile photos. Every migration is safe to run again.
+2. In phpMyAdmin, import `database/schema.sql`. It creates the `pasakja` database and its tables. Then import each file in `database/migrations/` in date order (oldest first): they add fares, live tracking, community alerts, password-reset requests, profile photos, driver license photos and account suspension. Every migration is safe to run again.
 3. Copy `api/config.example.php` to `api/config.local.php`. Set your local database password there. The local config is ignored by Git.
 4. Copy `.env.example` to `.env.local`. Keep `VITE_API_BASE_URL=/api`; the Vite dev server forwards `/api` to `PASAKJA_API_PROXY_TARGET` (the Apache URL for this folder). Restart Vite after changing either value.
 5. Open `http://localhost/PASAKJA-main/api/health` and confirm the response reports `"database":"connected"`.
@@ -43,13 +43,19 @@ Set database credentials in server environment variables or a private config out
 - `GET /health`
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`
 - `POST /auth/forgot` (reset request for an admin), `POST /auth/password` (change password)
+- `PATCH /me` (edit name, phone, email and home town; a new phone or email needs `current_password`)
 - `PUT /me/avatar`, `DELETE /me/avatar` (profile photo)
 - `GET /rides`, `POST /rides`
 - `GET /rides/{id}`, `POST /rides/{id}/accept`, `POST /rides/{id}/decline`
 - `PATCH /rides/{id}/status`, `POST /rides/{id}/cancel`, `POST /rides/{id}/rating`
 - `GET /alerts` (community notices for the user's town plus their own ride, SOS and account notices)
+- `PUT /driver/id-photo` (a driver who isn't verified adds or replaces their license/ID photo; a rejected driver goes back to pending)
 - `GET /places/reverse?lat=&lng=` (street name for a map pin, from OpenStreetMap, cached)
-- Admin: `GET|POST /admin/alerts`, `DELETE /admin/alerts/{id}`; `GET /admin/password-resets`, `POST /admin/password-resets/{id}/resolve|dismiss`; `GET /admin/fares`, `PUT /admin/fares/municipalities/{town}`, `PUT /admin/fares/intertown`, `PUT /admin/fares/discounts`
+- Admin: `GET /admin/accounts`, `POST /admin/accounts/{id}/suspend` (body `reason`, shown to the user at sign-in) and `POST /admin/accounts/{id}/reactivate`; `GET /admin/drivers/{id}/id-photo` (each view is logged), `GET|POST /admin/alerts`, `DELETE /admin/alerts/{id}`; `GET /admin/password-resets`, `POST /admin/password-resets/{id}/resolve|dismiss`; `GET /admin/fares`, `PUT /admin/fares/municipalities/{town}`, `PUT /admin/fares/intertown`, `PUT /admin/fares/discounts`
+
+## Driver approval
+
+Driver sign-up requires a photo of the driver's license or ID. The browser shrinks it (up to 1600px) before upload, and the API refuses photos that are too small to read. In **Dashboard → Drivers**, **Review ID** shows the photo next to the license number, plate, body number and TODA; Approve and Reject are in that dialog. ID photos are personal data: only admins can load them, one driver at a time, every view is recorded in `admin_activity_logs`, and the driver list never includes the photo itself. Phone numbers are stored as `+639…`, and sign-in accepts `0917…`, `917…` or `+63917…`.
 
 ## Forgot password
 

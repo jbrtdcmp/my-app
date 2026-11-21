@@ -100,11 +100,65 @@ function generateTemporaryPassword(int $length = 10): string
     return $password;
 }
 
+const VEHICLE_TYPES = ['tricycle'];
+
 /**
- * Validates a profile photo sent as a data URL (the browser resizes it first).
+ * Stores Philippine mobile numbers one way: 09171234567, 9171234567, 639171234567
+ * and +639171234567 all become +639171234567. Anything else keeps only digits and +.
+ */
+function normalizePhilippinePhone(string $input): string
+{
+    $digits = preg_replace('/[^0-9+]/', '', $input) ?? '';
+    if (preg_match('/^\+?63(9\d{9})$/', $digits, $match)) return '+63' . $match[1];
+    if (preg_match('/^0?(9\d{9})$/', $digits, $match)) return '+63' . $match[1];
+    return $digits;
+}
+
+/**
+ * The reason an admin gives for suspending an account; the user sees it when signing in.
+ * Returns the trimmed reason, or throws InvalidArgumentException with a user-facing message.
+ */
+function validatedSuspensionReason(string $reason): string
+{
+    $reason = trim((string)preg_replace('/\s+/u', ' ', $reason));
+    if (mb_strlen($reason) < 5) throw new InvalidArgumentException('Give a reason of at least 5 characters. The user will see it.');
+    if (mb_strlen($reason) > 255) throw new InvalidArgumentException('Keep the reason under 255 characters.');
+    return $reason;
+}
+
+/** Every way one mobile number may already be stored (+639…, 09…, 639…, 9…), for duplicate checks. */
+function phoneVariants(string $normalized): array
+{
+    if (!preg_match('/^\+63(9\d{9})$/', $normalized, $match)) return [$normalized];
+    return ['+63' . $match[1], '0' . $match[1], '63' . $match[1], $match[1]];
+}
+
+/**
+ * Checks the account details used at sign-up and on the profile page.
+ * Returns [clean values, field errors]: a 2–120 character name, a phone number in +63 form,
+ * an optional email (null when blank) and an optional home town (null when blank).
+ */
+function validateAccountDetails(array $input): array
+{
+    $name = trim((string)preg_replace('/\s+/u', ' ', (string)($input['name'] ?? '')));
+    $phone = normalizePhilippinePhone((string)($input['phone'] ?? ''));
+    $email = strtolower(trim((string)($input['email'] ?? '')));
+    $townInput = trim((string)($input['municipality'] ?? ''));
+    $town = canonicalTown($townInput);
+    $errors = [];
+    if (mb_strlen($name) < 2 || mb_strlen($name) > 120) $errors['name'] = 'Enter your full name.';
+    if (!preg_match('/^\+?[0-9]{7,18}$/', $phone)) $errors['phone'] = 'Enter a valid phone number.';
+    if ($email !== '' && (strlen($email) > 190 || !filter_var($email, FILTER_VALIDATE_EMAIL))) $errors['email'] = 'Enter a valid email address.';
+    if ($townInput !== '' && $town === null) $errors['municipality'] = 'Choose one of the five towns.';
+    return [['name' => $name, 'phone' => $phone, 'email' => $email === '' ? null : $email, 'municipality' => $town], $errors];
+}
+
+/**
+ * Validates an image sent as a data URL (the browser resizes it first): JPEG, PNG or WebP,
+ * real image bytes of the declared type, within the size limits.
  * Returns the data URL to store, or throws InvalidArgumentException with a user-facing message.
  */
-function validatedAvatarDataUrl(string $dataUrl, int $maxBytes = 200000, int $maxSide = 1024): string
+function validatedImageDataUrl(string $dataUrl, int $maxBytes, int $maxSide, int $minSide = 16): string
 {
     if (!preg_match('#^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$#', $dataUrl, $matches)) {
         throw new InvalidArgumentException('Send the photo as a JPEG, PNG or WebP image.');
@@ -114,10 +168,28 @@ function validatedAvatarDataUrl(string $dataUrl, int $maxBytes = 200000, int $ma
     if (strlen($bytes) > $maxBytes) throw new InvalidArgumentException('The photo is too large. Choose a smaller image.');
     $info = @getimagesizefromstring($bytes);
     if (!$info || ($info['mime'] ?? '') !== $matches[1]) throw new InvalidArgumentException('That file is not a valid image.');
-    if ($info[0] < 16 || $info[1] < 16 || $info[0] > $maxSide || $info[1] > $maxSide) {
+    if ($info[0] < $minSide || $info[1] < $minSide || $info[0] > $maxSide || $info[1] > $maxSide) {
         throw new InvalidArgumentException('The photo size is not supported.');
     }
     return $dataUrl;
+}
+
+/** Profile photo: small, shown as a circle. */
+function validatedAvatarDataUrl(string $dataUrl): string
+{
+    return validatedImageDataUrl($dataUrl, 200000, 1024);
+}
+
+/** Driver's licence or ID: large enough for an admin to read the text. */
+function validatedIdPhotoDataUrl(string $dataUrl): string
+{
+    try {
+        return validatedImageDataUrl($dataUrl, 700000, 2400, 200);
+    } catch (InvalidArgumentException $error) {
+        throw new InvalidArgumentException($error->getMessage() === 'The photo size is not supported.'
+            ? 'The ID photo is too small to read. Take a closer, clearer photo.'
+            : $error->getMessage());
+    }
 }
 
 /**

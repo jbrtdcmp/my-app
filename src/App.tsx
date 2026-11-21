@@ -115,7 +115,7 @@ function RoleTopBar({ title, onBack, onOpenSos, role, sosCount }: { title: strin
   );
 }
 
-function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onLogout, onUserChange }: {
+function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdminTabChange, onPassengerBookingStart, onDriverAcceptRide, onResumeRide, onRideFound, onComplete, onCancelled, onLogout, onUserChange }: {
   screen: Screen;
   role: UserRole;
   user: ApiUser | null;
@@ -128,11 +128,12 @@ function ScreenContent({ screen, role, user, rideState, rideId, adminTab, onAdmi
   onResumeRide: (rideId: number) => void;
   onRideFound: () => void;
   onComplete: () => void;
+  onCancelled: () => void;
   onLogout: () => void;
   onUserChange: (user: ApiUser) => void;
 }) {
-  if (rideState === 'finding') return <FindingDriver rideId={rideId} onFound={onRideFound} onCancel={onComplete}/>;
-  if (rideState === 'tracking') return <RideTracking rideId={rideId} onComplete={onComplete} isDriver={role === 'driver'}/>;
+  if (rideState === 'finding') return <FindingDriver rideId={rideId} onFound={onRideFound} onCancel={onCancelled}/>;
+  if (rideState === 'tracking') return <RideTracking rideId={rideId} onComplete={onComplete} onCancelled={onCancelled} isDriver={role === 'driver'}/>;
 
   switch (screen) {
     case 'home': return <PassengerHome onBookingStart={onPassengerBookingStart} onResumeRide={onResumeRide}/>;
@@ -291,6 +292,12 @@ export default function App() {
     setActiveRideId(null);
     navigateScreen(role === 'admin' ? 'admin' : 'bookings', true);
   };
+  // A cancelled booking goes back to Home (or Requests for drivers), ready to book again.
+  const handleRideCancelled = () => {
+    setRideState('idle');
+    setActiveRideId(null);
+    navigateScreen(role === 'admin' ? 'admin' : role === 'driver' ? 'driver' : 'home', true);
+  };
   const backToHome = useBackNavigation(
     role,
     rideFallbackPath(role),
@@ -404,6 +411,7 @@ export default function App() {
             onResumeRide={handleResumeRide}
             onRideFound={handleRideFound}
             onComplete={handleRideComplete}
+            onCancelled={handleRideCancelled}
             onLogout={handleLogout}
             onUserChange={setCurrentUser}
           />

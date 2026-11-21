@@ -1,0 +1,397 @@
+{
+  "summary": {
+    "started": "2026-11-21T03:04:40.107Z",
+    "finished": "2026-11-21T03:05:55.230Z",
+    "environment": "Local XAMPP (Apache, PHP 8.0, MariaDB 10.4) + Vite dev server, Chromium (Playwright) at 390×844 phone and 1440×900 desktop sizes",
+    "passed": 28,
+    "failed": 0,
+    "fareShown": "Fixed fare Cash Base fare (includes 1 km) ₱30 Total ₱30"
+  },
+  "results": [
+    {
+      "id": "UAT-01",
+      "feature": "Login",
+      "role": "Passenger",
+      "steps": "Open Sign in, enter a registered phone number and password, tap Log In.",
+      "expected": "The user is signed in and taken to the passenger Home screen.",
+      "actual": "Signed in and the passenger Home screen with the map and “Where to?” panel opened.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-01-login-home.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-02",
+      "feature": "Login with wrong password",
+      "role": "Passenger",
+      "steps": "Enter a registered phone number with a wrong password, tap Log In.",
+      "expected": "Access is refused with an error message; the user stays on Sign in.",
+      "actual": "Access refused with “We couldn’t sign you in with those details”; stayed on Sign in.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-02-wrong-password.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-03",
+      "feature": "Passenger registration",
+      "role": "Passenger",
+      "steps": "Open Sign up, choose Passenger, fill in name, phone, town and password, tap Create account.",
+      "expected": "A passenger account is created with the chosen town and the user is signed in.",
+      "actual": "Account created (phone saved as +639990000601, town Carrascal) and signed in to Home.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-03-signup-form.png",
+        "UAT-03-signed-in.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-04",
+      "feature": "Driver registration with license photo",
+      "role": "Driver",
+      "steps": "Open Sign up, choose Driver, fill in details, plate, body number, TODA, license number, upload a license photo, tap Create account.",
+      "expected": "A driver account is created as “pending” with the license photo saved for admin review.",
+      "actual": "Driver account created as pending; Profile shows the license photo is waiting for admin review.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-04-driver-signup-form.png",
+        "UAT-04-driver-pending.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-05",
+      "feature": "Admin reviews license and approves driver",
+      "role": "Admin",
+      "steps": "Sign in as admin, open Dashboard → Drivers, tap Review ID on the new driver, compare the photo with the details, tap Approve.",
+      "expected": "The license photo and details are shown; the driver becomes Verified and is notified.",
+      "actual": "License photo and details shown side by side; after Approve the driver shows “Verified” and received “You’re approved”.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-05-review-license.png",
+        "UAT-05-driver-verified.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-06",
+      "feature": "Driver goes online",
+      "role": "Driver",
+      "steps": "Sign in as an approved driver, open Requests, switch to online.",
+      "expected": "The driver is shown as online and ready to receive nearby ride requests.",
+      "actual": "Driver shown as “You’re online” with requests listed below; location shared with the server.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-06-driver-online.png"
+      ],
+      "seconds": 4
+    },
+    {
+      "id": "UAT-07",
+      "feature": "Fare estimate and ride booking",
+      "role": "Passenger",
+      "steps": "On Home, tap the pickup field and the map, then the destination field and the map; review the fare; tap Find a Tricycle.",
+      "expected": "A fixed fare with breakdown is shown before booking; the request is sent and “Finding a tricycle” appears.",
+      "actual": "Fare shown before booking (₱30); request sent and “Finding a tricycle” shown.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-07-fare-before-booking.png",
+        "UAT-07-finding-tricycle.png"
+      ],
+      "seconds": 5
+    },
+    {
+      "id": "UAT-08",
+      "feature": "Nearest driver receives and accepts the request",
+      "role": "Driver",
+      "steps": "As the online driver nearby, wait for the request card, tap Accept.",
+      "expected": "The request appears for the nearest driver with pickup, destination and fare; after Accept both sides see the ride details.",
+      "actual": "Request card showed pickup, destination and fare; after Accept the driver got the trip screen and the passenger saw the driver details (ride #44).",
+      "status": "Pass",
+      "evidence": [
+        "UAT-08-request-card.png",
+        "UAT-08-driver-trip-screen.png",
+        "UAT-08-passenger-driver-assigned.png"
+      ],
+      "seconds": 4
+    },
+    {
+      "id": "UAT-09",
+      "feature": "Live tracking along streets",
+      "role": "Passenger",
+      "steps": "Watch the ride screen after the driver starts the pickup.",
+      "expected": "The map shows the driver’s position and a route that follows the streets, with ETA and distance.",
+      "actual": "Driver marker and route shown; route has 4 points (follows streets), ETA 1 min, 0.16 km.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-09-live-tracking.png"
+      ],
+      "seconds": 3
+    },
+    {
+      "id": "UAT-10",
+      "feature": "Share live trip with a contact",
+      "role": "Passenger",
+      "steps": "During the ride, create a trip link and open it in a browser without signing in.",
+      "expected": "The shared page shows the trip status and driver without needing an account.",
+      "actual": "Trip link created; without signing in, the public page showed “Live trip”, the driver and plate, and a 464px map with the driver’s position.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-10-shared-trip-page.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-11",
+      "feature": "Driver completes the trip",
+      "role": "Driver",
+      "steps": "Tap Start trip, then Complete ride.",
+      "expected": "The ride is marked completed with the final fare and the driver returns to Requests.",
+      "actual": "Ride marked completed with final fare ₱30; driver taken to their Rides list, which shows the completed trip.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-11-complete-ride-button.png",
+        "UAT-11-after-complete.png"
+      ],
+      "seconds": 3
+    },
+    {
+      "id": "UAT-12",
+      "feature": "Passenger rates the driver",
+      "role": "Passenger",
+      "steps": "When the ride completes, choose a star rating, add a comment and tap Submit review.",
+      "expected": "The rating is saved and shown in the driver’s rating.",
+      "actual": "Review submitted; driver rating now 5.0.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-12-rate-driver.png"
+      ],
+      "seconds": 3
+    },
+    {
+      "id": "UAT-13",
+      "feature": "Ride status notifications",
+      "role": "Passenger",
+      "steps": "Open the Alerts tab after the ride.",
+      "expected": "The passenger sees Driver found, Driver on the way, Trip started and Trip completed.",
+      "actual": "All four ride notices shown: Driver found, Driver on the way, Trip started, Trip completed (with fare).",
+      "status": "Pass",
+      "evidence": [
+        "UAT-13-ride-notifications.png"
+      ],
+      "seconds": 0
+    },
+    {
+      "id": "UAT-14",
+      "feature": "Ride history",
+      "role": "Passenger",
+      "steps": "Open the Rides tab and filter by Completed.",
+      "expected": "The completed ride appears with date, places, status and fare.",
+      "actual": "Completed ride listed with date, pickup, destination, “Completed” status and fare.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-14-ride-history.png"
+      ],
+      "seconds": 0
+    },
+    {
+      "id": "UAT-15",
+      "feature": "Cancel a booking",
+      "role": "Passenger",
+      "steps": "Book another ride, then tap Cancel booking while finding a tricycle.",
+      "expected": "The request is cancelled and the passenger returns to Home.",
+      "actual": "Booking cancelled from “Finding a tricycle”; ride saved as cancelled and Home shown again.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-15-finding-before-cancel.png",
+        "UAT-15-back-home.png"
+      ],
+      "seconds": 4
+    },
+    {
+      "id": "UAT-16",
+      "feature": "Map pins get street names",
+      "role": "Passenger",
+      "steps": "Tap the pickup field, then tap a spot on the map.",
+      "expected": "The pickup field shows a street or place name instead of only coordinates.",
+      "actual": "Pickup field shows “Embarcadero, Carrascal”.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-16-pin-street-name.png"
+      ],
+      "seconds": 0
+    },
+    {
+      "id": "UAT-17",
+      "feature": "Emergency SOS",
+      "role": "Passenger / Admin",
+      "steps": "Passenger taps Emergency SOS → Confirm SOS; admin opens Dashboard → SOS and taps Mark resolved.",
+      "expected": "The alert reaches the admins with the passenger’s details and location, and can be resolved.",
+      "actual": "SOS sent with location; admin saw the passenger’s name, town (Carrascal), phone, time and “Open reported location”, and marked it resolved.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-17-sos-sent.png",
+        "UAT-17-admin-sos.png",
+        "UAT-17-admin-sos-resolved.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-18",
+      "feature": "Community alert to a town",
+      "role": "Admin / Passenger",
+      "steps": "Admin opens Dashboard → Alerts, targets Carrascal, writes a title and message, taps Publish alert; passenger in Carrascal opens Alerts.",
+      "expected": "The alert is published and appears in the Carrascal passenger’s Alerts.",
+      "actual": "Alert published to Carrascal and shown at the top of the Carrascal passenger’s Alerts.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-18-admin-publish.png",
+        "UAT-18-passenger-sees-alert.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-19",
+      "feature": "Admin changes a town fare",
+      "role": "Admin",
+      "steps": "Open Dashboard → Fares, raise the Carrascal base fare, tap Save; get a new fare estimate for the same trip.",
+      "expected": "The change is saved and new estimates use it.",
+      "actual": "Saved; the same trip’s estimate went from ₱30 to ₱40 (base fare ₱30 → ₱40). Restored after testing.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-19-fare-saved.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-20",
+      "feature": "PDF and Excel reports",
+      "role": "Admin",
+      "steps": "On the Dashboard, tap PDF, then Excel.",
+      "expected": "Both files download and contain the summary and ride list.",
+      "actual": "pasakja-report PDF and Excel files downloaded (saved as evidence).",
+      "status": "Pass",
+      "evidence": [
+        "UAT-20-dashboard-report-buttons.png",
+        "files/UAT-20-report.pdf",
+        "files/UAT-20-report.xlsx"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-21",
+      "feature": "Forgot password and admin reset",
+      "role": "Passenger / Admin",
+      "steps": "On Sign in tap Forgot password? and send a request; admin taps Issue temporary password; user signs in with it and sets a new password in Profile.",
+      "expected": "The request reaches the admin; the temporary password works once and the user can set a new one.",
+      "actual": "Request reached the admin; temporary password issued and accepted; new password set and working.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-21-forgot-request.png",
+        "UAT-21-admin-temp-password.png",
+        "UAT-21-password-changed.png"
+      ],
+      "seconds": 4
+    },
+    {
+      "id": "UAT-22",
+      "feature": "Profile photo",
+      "role": "Passenger",
+      "steps": "Open Profile, tap Add a photo and choose an image.",
+      "expected": "The photo is saved and shown on the profile, also after reopening the app.",
+      "actual": "Photo saved and still shown after reloading the app.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-22-profile-photo.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-23",
+      "feature": "Access control by role",
+      "role": "Passenger",
+      "steps": "As a passenger, open an admin address and call admin functions.",
+      "expected": "The passenger cannot open admin screens or use admin functions.",
+      "actual": "Admin address sent the passenger back to /passenger/home; admin functions answered 403 Forbidden (4 of 4).",
+      "status": "Pass",
+      "evidence": [
+        "UAT-23-admin-address-redirected.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-24",
+      "feature": "Fits phone, tablet and desktop screens",
+      "role": "All",
+      "steps": "Open the passenger Home on an iPhone-sized screen, a tablet and a desktop.",
+      "expected": "All content fits the screen without sideways scrolling; the map stays visible.",
+      "actual": "iphone12 390px: no sideways scroll, map 252px tall; tablet 768px: no sideways scroll, map 458px tall; desktop 1440px: no sideways scroll, map 389px tall.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-24-home-iphone12.png",
+        "UAT-24-home-tablet.png",
+        "UAT-24-home-desktop.png"
+      ],
+      "seconds": 9
+    },
+    {
+      "id": "UAT-25",
+      "feature": "Admin suspends and reactivates an account",
+      "role": "Admin / Passenger",
+      "steps": "Admin opens Dashboard → Accounts, finds the passenger, taps Suspend, gives a reason and confirms; the passenger tries to sign in; admin taps Reactivate.",
+      "expected": "The account is marked Suspended and signed out; the passenger is refused sign-in and sees the reason; after Reactivate they can sign in again.",
+      "actual": "Account marked “Suspended” with the reason and signed out of its open session; sign-in refused with “This account is suspended: UAT check of account suspension.”; after Reactivate the passenger signed in again.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-25-suspend-dialog.png",
+        "UAT-25-account-suspended.png",
+        "UAT-25-sign-in-refused.png"
+      ],
+      "seconds": 3
+    },
+    {
+      "id": "UAT-26",
+      "feature": "Driver earnings summary",
+      "role": "Driver",
+      "steps": "As the driver who completed the UAT ride, open Profile and look at Earnings.",
+      "expected": "Earnings for today, this week, this month and all time are shown, match the driver’s completed rides, and today includes the UAT ride’s fare.",
+      "actual": "Earnings shown — today ₱30 · 1 ride, this week ₱30 · 1 ride, this month ₱145 · 5 rides, all time ₱145 · 5 rides; today includes the UAT ride (₱30).",
+      "status": "Pass",
+      "evidence": [
+        "UAT-26-driver-earnings.png"
+      ],
+      "seconds": 1
+    },
+    {
+      "id": "UAT-27",
+      "feature": "Edit profile and change phone number",
+      "role": "Passenger",
+      "steps": "Open Profile, tap Edit, change the phone number, enter the current password, tap Save changes; sign in with the new number.",
+      "expected": "The new number is saved and works for signing in; the old number no longer does.",
+      "actual": "Phone changed after entering the current password; “Profile saved. Sign in with +639990000611 from now on.” shown; the new number signs in and the old one is refused.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-27-edit-profile.png",
+        "UAT-27-profile-saved.png"
+      ],
+      "seconds": 2
+    },
+    {
+      "id": "UAT-28",
+      "feature": "Driver declines a request",
+      "role": "Driver / Passenger",
+      "steps": "Passenger books a ride; the online driver taps Decline on the request card.",
+      "expected": "The request leaves that driver’s list and the booking stays open for another driver instead of being assigned to them.",
+      "actual": "After Decline the request left the driver’s list; ride #46 stayed “finding” (not assigned to that driver), then the passenger cancelled it.",
+      "status": "Pass",
+      "evidence": [
+        "UAT-28-request-before-decline.png",
+        "UAT-28-after-decline.png"
+      ],
+      "seconds": 11
+    }
+  ]
+}

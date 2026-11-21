@@ -38,8 +38,9 @@ export default function PublicTrip({ token }: { token: string }) {
         <Logo width={32}/>
       </header>
       {error ? <p role="alert" className="m-6 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</p> : <>
-        <div className="public-trip-map relative flex-1">
-          <Map activeMunicipality="carrascal" showRoute className="absolute inset-0" driverPosition={position} driverHeading={position?.heading}/>
+        {/* The map needs a fixed height; it is centred on the trip's town. */}
+        <div className="public-trip-map relative">
+          <Map activeMunicipality={trip?.municipality?.toLowerCase() || 'carrascal'} showRoute className="h-full" driverPosition={position} driverHeading={position?.heading}/>
           {trip?.stale && trip.position && <p role="status" className="absolute left-3 right-3 top-3 rounded-lg bg-white/95 px-3 py-2 text-center text-sm text-ink">Last location is delayed. Waiting for a fresh update.</p>}
           {!trip?.position && <p role="status" className="absolute left-3 right-3 top-3 rounded-lg bg-white/95 px-3 py-2 text-center text-sm text-ink">Driver location has not been shared yet.</p>}
         </div>

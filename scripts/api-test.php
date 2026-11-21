@@ -58,6 +58,48 @@ check('a non-image data URL is rejected', $threw('data:text/html;base64,' . base
 check('text pretending to be a PNG is rejected', $threw('data:image/png;base64,' . base64_encode('not really a png')));
 check('a photo over the size limit is rejected', $threw('data:image/png;base64,' . base64_encode(str_repeat('a', 210000))));
 
+// Driver ID photos: must be big enough to read
+$idThrew = static function (string $value): ?string {
+    try { validatedIdPhotoDataUrl($value); return null; } catch (InvalidArgumentException $error) { return $error->getMessage(); }
+};
+// A plain grey PNG of any size, built by hand so the test doesn't need the GD extension.
+function blankPng(int $width, int $height): string
+{
+    $chunk = static fn(string $type, string $data): string => pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+    $rows = str_repeat("\0" . str_repeat("\x80", $width), $height);
+    return "\x89PNG\r\n\x1a\n" . $chunk('IHDR', pack('NNCCCCC', $width, $height, 8, 0, 0, 0, 0)) . $chunk('IDAT', gzcompress($rows)) . $chunk('IEND', '');
+}
+$readableId = 'data:image/png;base64,' . base64_encode(blankPng(800, 500));
+check('a readable 800×500 ID photo is accepted', $idThrew($readableId) === null);
+check('a tiny 16×16 image is refused as an ID', str_contains((string)$idThrew($png), 'too small to read'));
+check('an ID photo must be an image', $idThrew('data:application/pdf;base64,' . base64_encode('%PDF-1.4')) !== null);
+check('tricycle is a known vehicle type', in_array('tricycle', VEHICLE_TYPES, true));
+
+// Phone numbers: every common way of writing a PH mobile number becomes +639…
+foreach (['09171234567', '9171234567', '639171234567', '+639171234567', '+63 917 123 4567', '0917-123-4567'] as $typed) {
+    check("\"$typed\" is stored as +639171234567", normalizePhilippinePhone($typed) === '+639171234567', normalizePhilippinePhone($typed));
+}
+check('a landline keeps only its digits', normalizePhilippinePhone('(086) 212-3456') === '0862123456');
+check('a mobile number is checked in every stored form', phoneVariants('+639171234567') === ['+639171234567', '09171234567', '639171234567', '9171234567']);
+check('other numbers are checked as they are', phoneVariants('0862123456') === ['0862123456']);
+
+// Suspension reasons
+check('a suspension reason is trimmed and kept', validatedSuspensionReason("  Repeated   complaints \n") === 'Repeated complaints');
+$tooShort = false;
+try { validatedSuspensionReason('bad'); } catch (InvalidArgumentException) { $tooShort = true; }
+check('a reason shorter than 5 characters is refused', $tooShort);
+$tooLong = false;
+try { validatedSuspensionReason(str_repeat('x', 256)); } catch (InvalidArgumentException) { $tooLong = true; }
+check('a reason longer than 255 characters is refused', $tooLong);
+
+// Account details (sign-up and profile edits)
+[$account, $errors] = validateAccountDetails(['name' => '  Juan   Dela Cruz ', 'phone' => '0917 123 4567', 'email' => ' Juan@Email.COM ', 'municipality' => 'madrid']);
+check('profile details are cleaned up', !$errors && $account === ['name' => 'Juan Dela Cruz', 'phone' => '+639171234567', 'email' => 'juan@email.com', 'municipality' => 'Madrid'], json_encode($account));
+[$account, $errors] = validateAccountDetails(['name' => 'Ana Santos', 'phone' => '+639181234567', 'email' => '', 'municipality' => '']);
+check('a blank email and home town are saved as empty', !$errors && $account['email'] === null && $account['municipality'] === null);
+[, $errors] = validateAccountDetails(['name' => 'A', 'phone' => '12', 'email' => 'not-an-email', 'municipality' => 'Manila']);
+check('a bad name, phone, email and town are each reported', array_keys($errors) === ['name', 'phone', 'email', 'municipality'], json_encode($errors));
+
 // Place names from OpenStreetMap
 check('a shop on a street reads "name, street, town"', placeLabelFromNominatim(['name' => 'Solar Drugstore', 'address' => ['road' => 'Falcon Street', 'town' => 'Cantilan']]) === 'Solar Drugstore, Falcon Street, Cantilan');
 check('a plain street reads "street, town"', placeLabelFromNominatim(['name' => 'Rizal Street', 'address' => ['road' => 'Rizal Street', 'municipality' => 'Cantilan']]) === 'Rizal Street, Cantilan');

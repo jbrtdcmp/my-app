@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconAlerts, IconCheckCircle, IconDriver, IconHome, IconKey, IconLocation, IconNavigation, IconPackage, IconShield, IconStar, IconWeather, IconX } from './Icons';
+import { IconAlerts, IconCheckCircle, IconDriver, IconFile, IconHome, IconKey, IconLocation, IconNavigation, IconPackage, IconShield, IconStar, IconWeather, IconX } from './Icons';
 import type { AlertType } from '../services/api';
 
 // Community alert types an admin can choose, in the order they appear.
@@ -25,6 +25,10 @@ const PRESENTATION: Record<string, { icon: (size: number) => ReactNode; tone: 'o
   ride_cancelled: { icon: size => <IconX size={size}/>, tone: 'red' },
   sos: { icon: size => <IconShield size={size}/>, tone: 'red' },
   password_reset: { icon: size => <IconKey size={size}/>, tone: 'orange' },
+  driver_signup: { icon: size => <IconDriver size={size}/>, tone: 'orange' },
+  driver_id_uploaded: { icon: size => <IconFile size={size}/>, tone: 'orange' },
+  driver_verified: { icon: size => <IconCheckCircle size={size}/>, tone: 'green' },
+  driver_rejected: { icon: size => <IconX size={size}/>, tone: 'red' },
 };
 
 export function alertPresentation(type: string, size: 16 | 20 = 20) {

@@ -429,7 +429,7 @@
   .brand-lockup--light > svg { filter: drop-shadow(0 8px 20px rgba(120, 50, 10, 0.3)); }
   .brand-lockup--large .brand-lockup__name { font-size: var(--type-display); line-height: var(--line-display); }
   .brand-lockup--large .brand-lockup__tagline { font-size: var(--type-body); line-height: var(--line-body); white-space: normal; }
-  .avatar { width: 48px; height: 48px; display: grid; place-items: center; flex: none; border-radius: 50%; color: #fff; background: linear-gradient(145deg, #E07A35, var(--color-orange-action)); font-size: var(--type-subtitle); font-weight: 800; }
+  .avatar { position: relative; width: 48px; height: 48px; display: grid; place-items: center; flex: none; border-radius: 50%; color: #fff; background: linear-gradient(145deg, #E07A35, var(--color-orange-action)); font-size: var(--type-subtitle); font-weight: 800; }
   .avatar--small { width: 36px; height: 36px; font-size: var(--type-body); }
 
   /* -------------------------------------------------------------------------
@@ -696,17 +696,20 @@
   .profile-layout__header { position: relative; display: flex; align-items: center; gap: var(--space-lg); padding: var(--space-xl) var(--space-page-inline); background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
   .profile-layout__avatar { position: relative; width: 72px; height: 72px; flex: none; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: #fff; background: linear-gradient(145deg, #E07A35, var(--color-orange-action)); box-shadow: 0 0 0 4px var(--color-orange-soft); font-size: var(--type-display); font-weight: 800; cursor: pointer; }
   .profile-layout__avatar:disabled { cursor: progress; opacity: .7; }
-  .profile-layout__avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
   .profile-layout__avatar-badge { position: absolute; right: -2px; bottom: -2px; width: 28px; height: 28px; display: grid; place-items: center; border: 2px solid var(--color-surface); border-radius: 50%; color: var(--color-orange-action); background: var(--color-orange-soft); }
   .profile-layout__header .text-link { margin-top: var(--space-sm); }
   .profile-layout__header .profile-layout__photo-note { font-size: var(--type-small); }
-  .profile-password-form { display: flex; flex-direction: column; gap: var(--space-md); padding: var(--space-lg); }
-  .avatar__photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .profile-password-form, .profile-edit-form { display: flex; flex-direction: column; gap: var(--space-md); padding: var(--space-lg); }
+  /* Pinned to the circle's box so tall or wide photos are cropped to the circle
+     instead of stretching the grid row (a tall photo used to spill out as an oval). */
+  .avatar__photo, .profile-layout__avatar img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: none; border-radius: 50%; object-fit: cover; }
   .profile-layout__header h1 { margin: 0 0 var(--space-xs); font-size: var(--type-display); line-height: var(--line-display); font-weight: 800; letter-spacing: -0.02em; }
   .profile-layout__header p { margin: var(--space-sm) 0 0; color: var(--color-ink-soft); font-size: var(--type-body); line-height: var(--line-body); }
   .profile-layout__role { color: var(--color-orange-dark); background: var(--color-orange-soft); }
   .profile-layout__content { display: flex; flex-direction: column; gap: var(--space-xl); padding: var(--space-xl) var(--space-page-inline); }
-  .profile-layout__section > h2 { margin: 0 0 var(--space-md); padding-inline: var(--space-xs); color: var(--color-ink-soft); font-size: var(--type-small); line-height: var(--line-small); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .profile-layout__section > h2, .profile-layout__section-head > h2 { margin: 0 0 var(--space-md); padding-inline: var(--space-xs); color: var(--color-ink-soft); font-size: var(--type-small); line-height: var(--line-small); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .profile-layout__section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); margin: 0 0 var(--space-md); padding-inline: var(--space-xs); }
+  .profile-layout__section-head > h2 { margin: 0; padding: 0; }
   .profile-layout__card { padding: 0; overflow: hidden; }
   .profile-layout__row--divided { border-bottom: 1px solid var(--color-border); }
   .profile-layout__row-label { min-width: 0; flex: 1 1 auto; color: var(--color-ink); font-size: var(--type-body); line-height: var(--line-body); font-weight: 600; }
@@ -772,6 +775,19 @@
   .auth-forgot-sent { display: flex; align-items: flex-start; gap: var(--space-sm); margin: 0 0 var(--space-md); padding: var(--space-md); border-radius: var(--radius-control); color: var(--color-success); background: var(--color-success-bg); font-size: var(--type-body); line-height: var(--line-body); }
   .auth-forgot-sent svg { flex: none; margin-top: 2px; }
 
+  /* Driver license / ID: the admin's review dialog and the driver's upload card */
+  .driver-id-dialog { max-width: 560px; max-height: calc(100dvh - var(--space-2xl)); overflow-y: auto; }
+  .driver-id-dialog__loading { height: 220px; margin-bottom: var(--space-md); border-radius: var(--radius-control); }
+  .driver-id-dialog__photo { margin: 0 0 var(--space-md); }
+  .driver-id-dialog__photo img { display: block; width: 100%; max-height: 50vh; object-fit: contain; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-warm); }
+  .driver-id-dialog__photo figcaption { margin-top: var(--space-xs); color: var(--color-ink-soft); font-size: var(--type-caption); line-height: var(--line-caption); }
+  .driver-id-dialog__details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm) var(--space-md); margin: 0 0 var(--space-md); }
+  .driver-id-dialog__details dt { color: var(--color-ink-soft); font-size: var(--type-caption); line-height: var(--line-caption); font-weight: 700; }
+  .driver-id-dialog__details dd { margin: 0; color: var(--color-ink); font-size: var(--type-body); line-height: var(--line-body); font-weight: 600; overflow-wrap: anywhere; }
+  .driver-id-card { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-md); padding: var(--space-lg); border: 1px solid #F3D9C6; border-radius: var(--radius-card); color: var(--color-orange-dark); background: var(--color-orange-soft); }
+  .driver-id-card p { margin: 0; font-size: var(--type-body); line-height: var(--line-body); font-weight: 600; }
+  .driver-id-card--rejected { border-color: #F3C9C9; color: #A93232; background: var(--color-danger-bg); }
+
   /* -------------------------------------------------------------------------
    * Admin
    * ----------------------------------------------------------------------- */
@@ -785,6 +801,8 @@
   .admin-header-button { display: inline-flex; align-items: center; gap: var(--space-sm); height: var(--control-default); padding: 0 var(--space-lg); border: 0; border-radius: var(--radius-pill); color: var(--color-orange-dark); background: #fff; font-size: var(--type-body); font-weight: 800; cursor: pointer; }
   .admin-header-button:hover { background: var(--color-orange-soft); }
   .admin-header-button:disabled { opacity: .75; cursor: progress; }
+  .account-manager__filters { display: flex; flex: 1 1 24rem; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); min-width: 0; }
+  .account-manager__reason { margin: var(--space-xs) 0 0; max-width: 16rem; color: var(--color-ink-soft); font-size: var(--type-small); line-height: var(--line-small); }
   .admin-tabs { position: sticky; top: 0; z-index: 5; display: flex; gap: var(--space-sm); overflow-x: auto; padding: var(--space-md) var(--space-page-inline); border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
   .admin-tab { flex: none; display: inline-flex; align-items: center; gap: var(--space-sm); height: 40px; padding: 0 var(--space-lg); border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-pill); color: var(--color-ink-soft); background: var(--color-surface); font-size: var(--type-body); font-weight: 700; white-space: nowrap; cursor: pointer; transition: background-color .16s ease, color .16s ease, border-color .16s ease; }
   .admin-tab:hover { color: var(--color-ink); border-color: var(--color-ink-faint); }
@@ -797,8 +815,7 @@
   .data-table tr:hover td { background: #FCFBF9; }
 
   /* Public trip page. */
-  .public-trip-shell { min-height: var(--public-trip-min-height); }
-  .public-trip-map { min-height: var(--public-map-min-height); }
+  .public-trip-map { height: clamp(var(--public-map-min-height), 55vh, 560px); }
 }
 
 @media (min-width: 480px) {

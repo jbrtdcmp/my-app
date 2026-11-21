@@ -9,7 +9,8 @@ import {
   IconX,
 } from '../components/Icons';
 import { Logo } from '../components/Logo';
-import { requestPasswordReset, type AuthPayload } from '../services/api';
+import { ApiError, requestPasswordReset, type AuthPayload } from '../services/api';
+import { ID_PHOTO_SIZE, resizeImageFile } from '../services/images';
 import { AppButton, AppInput, AppSelect, FormField, Stack } from '../components/ui';
 
 type Role = 'passenger' | 'driver';
@@ -125,7 +126,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [municipality, setMunicipality] = useState('');
   const [showForgot, setShowForgot] = useState(false);
-  const [vehicleType, setVehicleType] = useState('');
+  const [vehicleType, setVehicleType] = useState('tricycle');
   const fieldsRef = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [idPhoto, setIdPhoto] = useState<File | null>(null);
@@ -202,10 +203,11 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
       setIdPhotoError('Choose an image file');
       return;
     }
-    if (file.size > 2 * 1024 * 1024) {
-      setIdPhotoError('Image must be 2 MB or smaller');
+    if (file.size > 15 * 1024 * 1024) {
+      setIdPhotoError('Image must be 15 MB or smaller');
       return;
     }
+    setIdPhotoError('');
     if (idPhotoUrl) URL.revokeObjectURL(idPhotoUrl);
     setIdPhoto(file);
     setIdPhotoUrl(URL.createObjectURL(file));
@@ -259,13 +261,24 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
     setFieldErrors({});
     setIsSubmitting(true);
     try {
-      await onAuth(role, { mode, role, ...form, municipality });
+      let driverDocuments: Pick<AuthPayload, 'idPhoto' | 'vehicleType'> = {};
+      if (mode === 'register' && role === 'driver' && idPhoto) {
+        try {
+          driverDocuments = { idPhoto: await resizeImageFile(idPhoto, ID_PHOTO_SIZE), vehicleType: vehicleType || 'tricycle' };
+        } catch (photoError) {
+          setIdPhotoError(photoError instanceof Error ? photoError.message : 'That ID photo could not be prepared. Try another one.');
+          photoInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+      }
+      await onAuth(role, { mode, role, ...form, municipality, ...driverDocuments });
     } catch (error) {
+      // A suspended account (403) gets the server's message, which includes the admin's reason.
       setAuthError(mode === 'login'
-        ? 'We couldn’t sign you in with those details. Check them and try again.'
+        ? (error instanceof ApiError && error.status === 403 ? error.message : 'We couldn’t sign you in with those details. Check them and try again.')
         : (error instanceof Error ? error.message : 'Unable to create your account. Please try again.'));
       if (mode === 'register' && error && typeof error === 'object' && 'details' in error && error.details && typeof error.details === 'object') {
-        setFieldErrors(Object.fromEntries(Object.keys(error.details).map(field => [field, 'Check this field'])));
+        setFieldErrors(Object.fromEntries(Object.entries(error.details as Record<string, unknown>).map(([field, message]) => [field, typeof message === 'string' && message ? message : 'Check this field'])));
       }
     } finally {
       setIsSubmitting(false);
@@ -514,7 +527,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
                 </AppSelect>
               </FormField>
               <div className="auth-photo-field">
-                <label className="field-label" htmlFor="auth-id-photo">ID photo</label>
+                <label className="field-label" htmlFor="auth-id-photo">Driver’s license or ID photo</label>
                 <input
                   id="auth-id-photo"
                   ref={photoInputRef}
@@ -533,7 +546,7 @@ export default function Auth({ onAuth, notice, onBack, initialMode = 'login', on
                   <div>
                     <button type="button" className="auth-photo-button" onClick={() => photoInputRef.current?.click()} disabled={isSubmitting}>{idPhoto ? 'Replace' : 'Upload ID photo'}</button>
                     {idPhoto && <button type="button" className="auth-photo-remove" onClick={removePhoto} disabled={isSubmitting}><IconX size={14}/>Remove</button>}
-                    <p className="field-helper">Images only, max 2 MB</p>
+                    <p className="field-helper">A clear photo where the text is readable. Only PASAKJA admins can see it.</p>
                   </div>
                 </div>
                 <FieldError id="auth-idPhoto-error" message={idPhotoError || fieldErrors.idPhoto}/>

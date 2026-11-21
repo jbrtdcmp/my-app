@@ -227,23 +227,31 @@ try {
 
     if ($segments === ['auth', 'register'] && $method === 'POST') {
         $input = body();
-        $name = trim((string)($input['name'] ?? ''));
-        $phone = preg_replace('/[^0-9+]/', '', (string)($input['phone'] ?? ''));
-        $email = strtolower(trim((string)($input['email'] ?? '')));
+        // Same name, phone, email and town rules as the profile page (features_service.php).
+        [$details, $errors] = validateAccountDetails($input);
+        ['name' => $name, 'phone' => $phone, 'municipality' => $municipality] = $details;
+        $email = (string)$details['email'];
         $password = (string)($input['password'] ?? '');
         $role = (string)($input['role'] ?? 'passenger');
-        $municipalityInput = trim((string)($input['municipality'] ?? ''));
-        $municipality = canonicalTown($municipalityInput);
-        $errors = [];
-        if ($municipalityInput !== '' && $municipality === null) $errors['municipality'] = 'Choose one of the five towns.';
-        if (mb_strlen($name) < 2 || mb_strlen($name) > 120) $errors['name'] = 'Enter your full name.';
-        if (!preg_match('/^\+?[0-9]{7,18}$/', $phone)) $errors['phone'] = 'Enter a valid phone number.';
-        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors['email'] = 'Enter a valid email address.';
         if (strlen($password) < 8) $errors['password'] = 'Password must be at least 8 characters.';
         if (!in_array($role, ['passenger', 'driver'], true)) $errors['role'] = 'Choose a valid account type.';
+        $vehicleType = null;
+        $idPhoto = null;
         if ($role === 'driver') {
             foreach (['plateNumber', 'bodyNumber', 'licenseNumber', 'todaName'] as $field) {
                 if (trim((string)($input[$field] ?? '')) === '') $errors[$field] = 'This driver detail is required.';
+            }
+            $vehicleType = trim((string)($input['vehicleType'] ?? 'tricycle')) ?: 'tricycle';
+            if (!in_array($vehicleType, VEHICLE_TYPES, true)) $errors['vehicleType'] = 'Choose a vehicle type.';
+            // An admin checks this photo before approving the driver.
+            if (trim((string)($input['idPhoto'] ?? '')) === '') {
+                $errors['idPhoto'] = 'Upload a photo of your driver’s license or ID.';
+            } else {
+                try {
+                    $idPhoto = validatedIdPhotoDataUrl((string)$input['idPhoto']);
+                } catch (InvalidArgumentException $error) {
+                    $errors['idPhoto'] = $error->getMessage();
+                }
             }
         }
         if ($errors) throw new ApiError(422, 'Please correct the form fields.', $errors);
@@ -255,8 +263,9 @@ try {
             $statement->execute([$name, $phone, $email !== '' ? $email : null, $municipality, password_hash($password, PASSWORD_DEFAULT), $role]);
             $userId = (int)$pdo->lastInsertId();
             if ($role === 'driver') {
-                $driver = $pdo->prepare('INSERT INTO driver_profiles (user_id, plate_number, body_number, license_number, toda_name) VALUES (?, ?, ?, ?, ?)');
-                $driver->execute([$userId, trim((string)$input['plateNumber']), trim((string)$input['bodyNumber']), trim((string)$input['licenseNumber']), trim((string)$input['todaName'])]);
+                $driver = $pdo->prepare('INSERT INTO driver_profiles (user_id, plate_number, body_number, license_number, toda_name, vehicle_type, id_photo_data, id_photo_uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)');
+                $driver->execute([$userId, trim((string)$input['plateNumber']), trim((string)$input['bodyNumber']), trim((string)$input['licenseNumber']), trim((string)$input['todaName']), $vehicleType, $idPhoto]);
+                notifyAdmins($pdo, 'driver_signup', 'New driver waiting for approval', sprintf('%s (%s, plate %s) signed up. Check their ID in Dashboard → Drivers.', $name, trim((string)$input['todaName']), trim((string)$input['plateNumber'])), $userId);
             }
             $pdo->commit();
         } catch (PDOException $error) {
@@ -275,11 +284,18 @@ try {
         $password = (string)($input['password'] ?? '');
         if ($identifier === '' || $password === '') throw new ApiError(422, 'Enter your phone or email and password.');
         $pdo = database($config);
-        $statement = $pdo->prepare('SELECT id, full_name, phone, email, municipality, avatar_data, password_hash, role, is_active FROM users WHERE phone = :identifier OR email = :email LIMIT 1');
-        $statement->execute(['identifier' => $identifier, 'email' => strtolower($identifier)]);
+        // Match the number as typed or in the standard +63 form, so 0917…, 917… and +63917… all work.
+        $statement = $pdo->prepare('SELECT id, full_name, phone, email, municipality, avatar_data, password_hash, role, is_active, suspension_reason FROM users WHERE phone = :identifier OR phone = :normalized OR email = :email LIMIT 1');
+        $statement->execute(['identifier' => $identifier, 'normalized' => normalizePhilippinePhone($identifier), 'email' => strtolower($identifier)]);
         $user = $statement->fetch();
-        if (!$user || !(int)$user['is_active'] || !password_verify($password, $user['password_hash'])) {
+        if (!$user || !password_verify($password, $user['password_hash'])) {
             throw new ApiError(401, 'The phone/email or password is incorrect.');
+        }
+        // Only after the right password, so a suspension doesn't reveal which numbers have accounts.
+        if (!(int)$user['is_active']) {
+            $reason = trim((string)($user['suspension_reason'] ?? ''));
+            if ($reason !== '' && !preg_match('/[.!?]$/u', $reason)) $reason .= '.';
+            throw new ApiError(403, 'This account is suspended' . ($reason !== '' ? ": {$reason}" : '.') . ' Contact a PASAKJA admin to have it reactivated.');
         }
         $token = issueToken($pdo, (int)$user['id']);
         respond(['user' => publicUser($user), 'token' => $token]);
@@ -309,10 +325,25 @@ try {
     if ($segments === ['driver', 'profile'] && $method === 'GET') {
         $user = authenticatedUser($config);
         requireRole($user, 'driver');
-        $stmt = database($config)->prepare('SELECT u.id, u.full_name, dp.plate_number, dp.body_number, dp.toda_name, dp.verification_status, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\') AS total_rides, (SELECT COUNT(*) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS rides_today, (SELECT COALESCE(SUM(COALESCE(r.final_fare, 0)), 0) FROM rides r WHERE r.driver_id = u.id AND r.status = \'completed\' AND r.completed_at >= CURDATE()) AS earnings_today, (SELECT COALESCE(AVG(rt.stars), 0) FROM ride_ratings rt WHERE rt.driver_id = u.id) AS rating FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.id = ?');
+        $pdo = database($config);
+        $stmt = $pdo->prepare('SELECT u.id, u.full_name, dp.plate_number, dp.body_number, dp.license_number, dp.toda_name, dp.vehicle_type, (dp.id_photo_data IS NOT NULL) AS has_id_photo, dp.id_photo_uploaded_at, dp.verification_status, (SELECT COALESCE(AVG(rt.stars), 0) FROM ride_ratings rt WHERE rt.driver_id = u.id) AS rating FROM users u JOIN driver_profiles dp ON dp.user_id = u.id WHERE u.id = ?');
         $stmt->execute([$user['id']]);
         $profile = $stmt->fetch();
         if (!$profile) throw new ApiError(404, 'Driver profile not found.');
+        // Earnings summary (requirement FR5): completed rides and fares today, this week
+        // (from Monday), this month and all time.
+        $week = 'CURDATE() - INTERVAL WEEKDAY(CURDATE()) DAY';
+        $month = "DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+        $earnings = $pdo->prepare("SELECT
+                COUNT(*) AS total_rides, COALESCE(SUM(fare), 0) AS earnings_total,
+                COALESCE(SUM(completed_at >= CURDATE()), 0) AS rides_today, COALESCE(SUM(IF(completed_at >= CURDATE(), fare, 0)), 0) AS earnings_today,
+                COALESCE(SUM(completed_at >= $week), 0) AS rides_week, COALESCE(SUM(IF(completed_at >= $week, fare, 0)), 0) AS earnings_week,
+                COALESCE(SUM(completed_at >= $month), 0) AS rides_month, COALESCE(SUM(IF(completed_at >= $month, fare, 0)), 0) AS earnings_month
+            FROM (SELECT completed_at, COALESCE(final_fare, 0) AS fare FROM rides WHERE driver_id = ? AND status = 'completed') done");
+        $earnings->execute([$user['id']]);
+        foreach ($earnings->fetch() as $key => $value) {
+            $profile[$key] = str_starts_with($key, 'rides') || $key === 'total_rides' ? (int)$value : round((float)$value, 2);
+        }
         respond(['profile' => $profile]);
     }
 
@@ -356,7 +387,8 @@ try {
         respond(['event' => ['id' => $sosId, 'status' => 'active', 'ride_id' => $activeRide ? (int)$activeRide['id'] : null], 'ride' => $activeRide ? ['id' => (int)$activeRide['id'], 'municipality' => $activeRide['municipality'], 'status' => $activeRide['status'], 'driver' => $driverDetails] : null], 201);
     }
 
-    if (count($segments) === 2 && $segments[0] === 'sos' && $segments[1] !== '' && $method === 'POST') {
+    // Resolve an SOS: POST /sos/{id}/resolve (what the app sends) or the older POST /sos/{id}.
+    if (($segments[0] ?? '') === 'sos' && (count($segments) === 2 || (count($segments) === 3 && $segments[2] === 'resolve')) && $method === 'POST') {
         $user = authenticatedUser($config);
         $sosId = filter_var($segments[1], FILTER_VALIDATE_INT);
         if (!$sosId) throw new ApiError(404, 'SOS alert not found.');
@@ -370,7 +402,7 @@ try {
     if ($segments === ['admin', 'sos'] && $method === 'GET') {
         $user = authenticatedUser($config);
         requireRole($user, 'admin');
-        $stmt = database($config)->query('SELECT s.*, u.full_name, u.phone, r.municipality, r.pickup_label, r.destination_label, d.full_name AS driver_name, dp.plate_number FROM sos_events s JOIN users u ON u.id = s.user_id LEFT JOIN rides r ON r.id = s.ride_id LEFT JOIN users d ON d.id = r.driver_id LEFT JOIN driver_profiles dp ON dp.user_id = r.driver_id ORDER BY (s.status = \'active\') DESC, s.created_at DESC LIMIT 200');
+        $stmt = database($config)->query('SELECT s.*, u.full_name, u.phone, u.municipality AS user_municipality, r.municipality, r.pickup_label, r.destination_label, d.full_name AS driver_name, dp.plate_number FROM sos_events s JOIN users u ON u.id = s.user_id LEFT JOIN rides r ON r.id = s.ride_id LEFT JOIN users d ON d.id = r.driver_id LEFT JOIN driver_profiles dp ON dp.user_id = r.driver_id ORDER BY (s.status = \'active\') DESC, s.created_at DESC LIMIT 200');
         respond(['events' => $stmt->fetchAll()]);
     }
 
@@ -403,8 +435,9 @@ try {
     if ($segments === ['admin', 'drivers'] && $method === 'GET') {
         $user = authenticatedUser($config);
         requireRole($user, 'admin');
-        $stmt = database($config)->query('SELECT u.id, u.full_name, u.phone, dp.plate_number, dp.body_number, dp.toda_name, dp.verification_status, dp.last_seen_at FROM users u JOIN driver_profiles dp ON dp.user_id = u.id ORDER BY FIELD(dp.verification_status, \'pending\', \'verified\', \'rejected\'), dp.created_at DESC');
-        respond(['drivers' => $stmt->fetchAll()]);
+        // The ID photo itself is left out of the list; it is fetched one driver at a time.
+        $stmt = database($config)->query('SELECT u.id, u.full_name, u.phone, dp.plate_number, dp.body_number, dp.license_number, dp.toda_name, dp.vehicle_type, (dp.id_photo_data IS NOT NULL) AS has_id_photo, dp.id_photo_uploaded_at, dp.verification_status, dp.last_seen_at FROM users u JOIN driver_profiles dp ON dp.user_id = u.id ORDER BY FIELD(dp.verification_status, \'pending\', \'verified\', \'rejected\'), dp.created_at DESC');
+        respond(['drivers' => array_map(static fn(array $row): array => ['id' => (int)$row['id'], 'has_id_photo' => (bool)(int)$row['has_id_photo']] + $row, $stmt->fetchAll())]);
     }
 
     if (count($segments) === 3 && $segments[0] === 'admin' && $segments[1] === 'drivers' && $method === 'PATCH') {
@@ -417,6 +450,8 @@ try {
         $stmt->execute([$status, $driverId]);
         if ($stmt->rowCount() < 1) throw new ApiError(404, 'Driver profile not found or unchanged.');
         logAdminActivity(database($config), (int)$user['id'], 'driver.verification_updated', 'driver', (int)$driverId, ['status' => $status]);
+        if ($status === 'verified') notifyUser(database($config), (int)$driverId, 'driver_verified', 'You’re approved', 'Your TODA driver account is verified. Go online on the Requests screen to start getting rides.');
+        if ($status === 'rejected') notifyUser(database($config), (int)$driverId, 'driver_rejected', 'Driver application not approved', 'Check your details and upload a clear photo of your license or ID in Profile, or contact your TODA office.');
         respond(['ok' => true]);
     }
 
@@ -424,13 +459,13 @@ try {
         $token = $segments[1];
         if (!preg_match('/^[a-f0-9]{64}$/i', $token)) throw new ApiError(404, 'Trip link is invalid or expired.');
         $pdo = database($config);
-        $stmt = $pdo->prepare('SELECT t.id AS share_id, r.id, r.status, r.pickup_label, r.destination_label, r.driver_id, r.passenger_id, d.full_name AS driver_name, dp.plate_number, dp.last_lat, dp.last_lng, dp.last_heading, dp.last_seen_at FROM ride_share_tokens t JOIN rides r ON r.id = t.ride_id LEFT JOIN users d ON d.id = r.driver_id LEFT JOIN driver_profiles dp ON dp.user_id = r.driver_id WHERE t.token_hash = ? AND t.revoked_at IS NULL AND t.expires_at > CURRENT_TIMESTAMP AND r.status IN (\'accepted\', \'arriving\', \'in_progress\') LIMIT 1');
+        $stmt = $pdo->prepare('SELECT t.id AS share_id, r.id, r.status, r.municipality, r.pickup_label, r.destination_label, r.driver_id, r.passenger_id, d.full_name AS driver_name, dp.plate_number, dp.last_lat, dp.last_lng, dp.last_heading, dp.last_seen_at FROM ride_share_tokens t JOIN rides r ON r.id = t.ride_id LEFT JOIN users d ON d.id = r.driver_id LEFT JOIN driver_profiles dp ON dp.user_id = r.driver_id WHERE t.token_hash = ? AND t.revoked_at IS NULL AND t.expires_at > CURRENT_TIMESTAMP AND r.status IN (\'accepted\', \'arriving\', \'in_progress\') LIMIT 1');
         $stmt->execute([hash('sha256', strtolower($token))]);
         $trip = $stmt->fetch();
         if (!$trip) throw new ApiError(404, 'Trip link is invalid or expired.');
         $stale = !$trip['last_seen_at'] || time() - strtotime((string)$trip['last_seen_at']) > 30;
         $location = $trip['last_lat'] !== null && $trip['last_lng'] !== null && !$stale ? ['lat' => (float)$trip['last_lat'], 'lng' => (float)$trip['last_lng'], 'heading' => $trip['last_heading'] === null ? null : (float)$trip['last_heading']] : null;
-        respond(['trip' => ['status' => $trip['status'], 'pickup' => $trip['pickup_label'], 'destination' => $trip['destination_label'], 'driver' => $trip['driver_name'] ? ['name' => $trip['driver_name'], 'plate_number' => $trip['plate_number']] : null, 'position' => $location, 'stale' => $stale]]);
+        respond(['trip' => ['status' => $trip['status'], 'municipality' => $trip['municipality'], 'pickup' => $trip['pickup_label'], 'destination' => $trip['destination_label'], 'driver' => $trip['driver_name'] ? ['name' => $trip['driver_name'], 'plate_number' => $trip['plate_number']] : null, 'position' => $location, 'stale' => $stale]]);
     }
 
     if ($segments === ['driver', 'location'] && $method === 'POST') {
